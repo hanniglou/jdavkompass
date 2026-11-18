@@ -20,13 +20,25 @@ def profile():
         old_password = request.form.get("old_password", "")
         new_password = request.form.get("new_password", "")
         confirm_password = request.form.get("confirm_password", "")
+        username = request.form.get("username", "").strip().lower()
 
-        if not check_password_hash(user["password"], old_password):
-            error = "Altes Passwort ist falsch."
-        elif new_password != confirm_password:
-            error = "Die neuen Passwörter stimmen nicht überein."
-        else:
-            update_password(user["id"], new_password)
-            success = "Passwort erfolgreich geändert."
+        if old_password and new_password and confirm_password:
+
+            if not check_password_hash(user["password"], old_password):
+                error = "Altes Passwort ist falsch."
+            elif new_password != confirm_password:
+                error = "Die neuen Passwörter stimmen nicht überein."
+            else:
+                update_password(user["id"], new_password)
+                success = "Passwort erfolgreich geändert."
+
+        if username:
+            if existing_username(username):
+                error = "Nutzername existiert schon"
+            else:
+                update_username(user["id"], username)
+                current_user.uname = username
+                user = get_account(current_user)
+                success = "Nutzernamen erfolgreich geändert."
 
     return render_template("profile.html", user=user, error=error, success=success)

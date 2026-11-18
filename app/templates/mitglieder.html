@@ -13,10 +13,9 @@
         <table class="table">
             <thead>
                 <tr>
-                    <th>ID</th>
-                    <th>Name</th>
+                    <th>Vorname</th>
+                    <th>Nachname</th>
                     <th>Geburtsdatum</th>
-                    <th>Geschlecht</th>
                     <th>Adresse</th>
                     <th>Erziehungsberechtigte</th>
                     <th>Unterschrift</th>
@@ -27,15 +26,9 @@
             <tbody>
                 {% for mitglied in mitglieder_unapproved_daten %}
                 <tr>
-                    <td>{{ mitglied.id }}</td>
-                    <td>{{ mitglied.vorname }} {{ mitglied.nachname }}</td>
-                    <td>{{ mitglied.geburtsdatum }}</td>
-                    <td>
-                        {% if mitglied.geschlecht == "m" %}M
-                        {% elif mitglied.geschlecht == "w" %}W
-                        {% elif mitglied.geschlecht == "d" %}D
-                        {% else %}-{% endif %}
-                    </td>
+                    <td>{{ mitglied.vorname }}</td>
+                    <td>{{ mitglied.nachname }}</td>
+                    <td>{{ mitglied.geburtsdatum[8:10] }}.{{ mitglied.geburtsdatum[5:7] }}.{{ mitglied.geburtsdatum[0:4] }}</td>
                     <td>
                         {{ mitglied.strasse }} {{ mitglied.hausnummer }}<br>
                         {{ mitglied.plz }} {{ mitglied.ort }}
@@ -82,44 +75,36 @@
         <table class="table">
             <thead>
                 <tr>
-                    <th>ID</th>
-                    <th>Name</th>
+                    <th>Vorname</th>
+                    <th>Nachname</th>
+                    <th>Gruppen</th>
                     <th>Geburtsdatum</th>
                     <th>Mitgliedsnummer</th>
-                    <th>Geschlecht</th>
                     <th>Adresse</th>
                     <th>Erziehungsberechtigte</th>
-                    <th>Gruppen</th>
                     <th>Aktion</th>
                 </tr>
             </thead>
             <tbody>
                 {% for mitglied in mitglieder_daten %}
                 <tr>
-                    <td>{{ mitglied.id }}</td>
-                    <td>{{ mitglied.vorname }} {{ mitglied.nachname }}</td>
-                    <td>{{ mitglied.geburtsdatum }}</td>
+                    <td>{{ mitglied.vorname }}</td>
+                    <td>{{ mitglied.nachname }}</td>
+                    <td>
+                        {% for gruppe in mitglied.gruppen %}
+                            {{ gruppe.name }}{% if not loop.last %}, {% endif %}
+                        {% endfor %}
+                    </td>
+                    <td>{{ mitglied.geburtsdatum[8:10] }}.{{ mitglied.geburtsdatum[5:7] }}.{{ mitglied.geburtsdatum[0:4] }}</td>
                     <td>{% if mitglied.mitgliedsnummer %}
                         {{mitglied.mitgliedsnummer}}
                         {% else %}
                         Mitgliedsnummer fehlt
                         {% endif %}
                     </td>
-                    <td>
-                        {% if mitglied.geschlecht == "m" %}M
-                        {% elif mitglied.geschlecht == "w" %}W
-                        {% elif mitglied.geschlecht == "d" %}D
-                        {% else %}-{% endif %}
-                    </td>
                     <td>{{mitglied.strasse}} {{mitglied.hausnummer}} {{mitglied.plz}} {{mitglied.ort}}</td>
                     <td>
                         {{mitglied.erziehungsberechtigte.vorname}} {{mitglied.erziehungsberechtigte.nachname}} {{mitglied.erziehungsberechtigte.email}} {{mitglied.erziehungsberechtigte.telefon}}
-                    </td>
-
-                    <td>
-                        {% for gruppe in mitglied.gruppen %}
-                            {{ gruppe.name }}{% if not loop.last %}, {% endif %}
-                        {% endfor %}
                     </td>
                     <td>
                         <a href="{{ url_for('mitglieder.mitglied_bearbeiten', mitglied_id=mitglied.id) }}" class="btn btn-primary">
@@ -137,4 +122,90 @@
         {% endif %}
     </div>
 </section>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const tables = document.querySelectorAll(".table");
+    if (!tables.length) return;
+
+    tables.forEach(table => {
+        const headers = table.querySelectorAll("thead th");
+        const tbody = table.querySelector("tbody");
+        if (!tbody) return;
+
+        function parseCellValue(text) {
+            const clean = text.trim();
+            if (!clean || clean === "-") return "";
+
+            const deDate = clean.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+            if (deDate) {
+                return `${deDate[3]}-${deDate[2]}-${deDate[1]}`;
+            }
+
+            if (/^\d+(\.\d+)?$/.test(clean)) {
+                return parseFloat(clean);
+            }
+
+            return clean.toLowerCase();
+        }
+
+        headers.forEach((th, colIndex) => {
+            const title = th.textContent.trim();
+            if (!title || title.toLowerCase() === "aktion" || title.toLowerCase() === "aktionen") {
+                return;
+            }
+
+            th.classList.add("sortable-th");
+            th.dataset.order = "none";
+
+            const arrow = document.createElement("span");
+            arrow.className = "sort-arrow";
+            th.appendChild(arrow);
+
+            th.addEventListener("click", () => {
+                const nextOrder = th.dataset.order === "asc" ? "desc" : "asc";
+
+                headers.forEach(h => {
+                    h.dataset.order = "none";
+                    h.classList.remove("sorted-asc", "sorted-desc");
+                    const a = h.querySelector(".sort-arrow");
+                    if (a) a.textContent = "";
+                });
+
+                th.dataset.order = nextOrder;
+                th.classList.add(nextOrder === "asc" ? "sorted-asc" : "sorted-desc");
+                arrow.textContent = nextOrder === "asc" ? " ↓" : " ↑";
+
+                const rows = Array.from(tbody.querySelectorAll("tr"));
+
+                rows.sort((rowA, rowB) => {
+                    const cellA = rowA.children[colIndex];
+                    const cellB = rowB.children[colIndex];
+                    if (!cellA || !cellB) return 0;
+
+                    const rawA = cellA.querySelector("input, select")?.value ?? cellA.textContent;
+                    const rawB = cellB.querySelector("input, select")?.value ?? cellB.textContent;
+
+                    const valA = parseCellValue(rawA);
+                    const valB = parseCellValue(rawB);
+
+                    if (valA === "" && valB !== "") return 1;
+                    if (valB === "" && valA !== "") return -1;
+
+                    let cmp = 0;
+                    if (typeof valA === "number" && typeof valB === "number") {
+                        cmp = valA - valB;
+                    } else {
+                        cmp = String(valA).localeCompare(String(valB), "de", { numeric: true });
+                    }
+
+                    return nextOrder === "asc" ? cmp : -cmp;
+                });
+
+                rows.forEach(row => tbody.appendChild(row));
+            });
+        });
+    });
+});
+</script>
 {% endblock %}

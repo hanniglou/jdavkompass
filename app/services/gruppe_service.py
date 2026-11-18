@@ -234,7 +234,11 @@ def update_anwesenheit(gruppe_id, person_typ, person_list, request, daten):
         for person in person_list:
             for datum in daten:
                 field = f"{person_typ}_{person['id']}_{datum}"
-                anwesend = field in request.form
+                if person_typ == "mitglied":
+                    raw_val = request.form.get(field, "0")
+                    anwesend = int(raw_val) if raw_val in {"0", "1", "2"} else 0
+                else:
+                    anwesend = 1 if field in request.form else 0
                 cursor.execute(query, (person["id"], gruppe_id, datum, anwesend))
 
 def new_day(gruppe_id, datum):
@@ -266,3 +270,81 @@ def new_day(gruppe_id, datum):
                     (?, ?, ?, 0)
                 """, 
                 (leiter["id"], gruppe_id, datum))
+def get_vertretungs_kandidaten(feste_leiter):
+    """Gibt alle Jugendleitenden zurück, die NICHT fest dieser Gruppe zugeordnet sind."""
+    feste_ids = {l["id"] for l in feste_leiter}
+    query = """
+        SELECT id, vorname, nachname
+        FROM gruppenleiter
+        ORDER BY vorname, nachname
+    """
+    with get_kompass() as conn:
+        cursor = conn.cursor()
+        cursor.execute(query)
+        rows = cursor.fetchall()
+        return [
+            {"id": r[0], "vorname": r[1], "nachname": r[2]}
+            for r in rows
+            if r[0] not in feste_ids
+        ]
+
+
+def get_vertretungen_by_date(gruppe_id, feste_leiter):
+    """Gibt ein Dict {datum: [leiter_id_1, leiter_id_2]} für anwesende Vertretungen zurück."""
+    feste_ids = {l["id"] for l in feste_leiter}
+    query = """
+        SELECT datum, gruppenleiter_id
+        FROM anwesenheit_leiter
+        WHERE gruppe_id = ? AND anwesend = 1
+        ORDER BY gruppenleiter_id
+    """
+    vertretungen = {}
+    with get_kompass() as conn:
+        cursor = conn.cursor()
+        cursor.execute(query, (gruppe_id,))
+        for datum, gl_id in cursor.fetchall():
+            if gl_id not in feste_ids:
+                vertretungen.setdefault(datum, []).append(gl_id)
+    return vertretungen
+
+def update_vertretungen(gruppe_id, feste_leiter, request, daten):
+    """Speichert die ausgewählten Vertretungen (Slot 1 & 2) pro Datum in anwesenheit_leiter."""
+    feste_ids = {l["id"] for l in feste_leiter}
+    with get_kompass() as conn:
+        cursor = conn.cursor()
+        for datum in daten:
+            # 1. Bisherige Vertretungen an diesem Tag zurücksetzen
+            if feste_ids:
+                placeholders = ",".join("?" for _ in feste_ids)
+                cursor.execute(
+                    f"""
+                    DELETE FROM anwesenheit_leiter
+                    WHERE gruppe_id = ? AND datum = ?
+                      AND gruppenleiter_id NOT IN ({placeholders})
+                    """,
+                    (gruppe_id, datum, *feste_ids),
+                )
+            else:
+                cursor.execute(
+                    "DELETE FROM anwesenheit_leiter WHERE gruppe_id = ? AND datum = ?",
+                    (gruppe_id, datum),
+                )
+
+            # 2. Neu ausgewählte Vertretungen aus Slot 1 und Slot 2 eintragen
+            chosen_ids = set()
+            for slot in (1, 2):
+                val = request.form.get(f"vertretung_{slot}_{datum}", "").strip()
+                if val.isdigit():
+                    gl_id = int(val)
+                    if gl_id not in feste_ids:
+                        chosen_ids.add(gl_id)
+
+            for gl_id in chosen_ids:
+                cursor.execute(
+                    """
+                    INSERT OR REPLACE INTO anwesenheit_leiter
+                        (gruppenleiter_id, gruppe_id, datum, anwesend)
+                    VALUES (?, ?, ?, 1)
+                    """,
+                    (gl_id, gruppe_id, datum),
+                )

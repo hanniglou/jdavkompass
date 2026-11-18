@@ -187,7 +187,7 @@ button {
 
 .form-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px,1fr));
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     gap: 0.94rem;
 }
 
@@ -223,7 +223,7 @@ button {
 }
 
 /* ========================
-   TABLE STYLES
+   TABLE & ATTENDANCE STYLES
 ======================== */
 .table-container,
 .anwesenheitsliste {
@@ -235,15 +235,6 @@ button {
 
 .table-container.mitglieder-container {
     max-width: 80vw;
-}
-
-.anwesenheitsliste table {
-    table-layout: fixed;
-    width: max-content;
-}
-
-.anwesenheitsliste td {
-    padding: 0.31rem !important;
 }
 
 .table {
@@ -268,6 +259,59 @@ button {
 .table--center th,
 .table--center td {
     text-align: center;
+}
+
+.anwesenheitsliste #attendance-form {
+    display: inline-block;
+    width: auto;
+}
+
+.anwesenheitsliste table.table {
+    width: auto !important;
+    max-width: max-content !important;
+    table-layout: fixed !important;
+    margin-left: 0 !important;
+    margin-right: auto !important;
+}
+
+.anwesenheitsliste table.table th,
+.anwesenheitsliste table.table td {
+    white-space: nowrap;
+    width: auto;
+}
+
+.anwesenheitsliste table.table th.historie,
+.anwesenheitsliste table.table td.historie {
+    width: 130px !important;
+    min-width: 130px !important;
+    max-width: 130px !important;
+}
+
+.anwesenheitsliste td {
+    padding: 0.31rem !important;
+}
+
+.sortable-th {
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+    transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.sortable-th:hover {
+    color: var(--color-highlight);
+    background-color: #f9fafb;
+}
+
+.sortable-th.sorted-asc,
+.sortable-th.sorted-desc {
+    color: var(--color-highlight);
+}
+
+.sort-arrow {
+    display: inline-block;
+    min-width: 1rem;
+    font-weight: 700;
 }
 
 /* ========================
@@ -413,7 +457,6 @@ input[type="checkbox"] {
 /* ========================
    LAYOUT HELPERS
 ======================== */
-
 .center {
     text-align: center;
 }
@@ -445,7 +488,6 @@ input[type="checkbox"] {
    MEDIA QUERIES
 ======================== */
 @media (max-width: 768px) {
-
     .nav-toggle-label {
         display: block;
         padding: 0.5rem;
@@ -460,7 +502,7 @@ input[type="checkbox"] {
         background: white;
         padding: 1rem;
         gap: 0.75rem;
-        box-shadow: 0 6px 16px rgba(0,0,0,0.1);
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
         border-radius: 6px;
     }
 
@@ -478,10 +520,9 @@ input[type="checkbox"] {
     }
 
     .card {
-        padding: 1.88rem 1.25rem 1.88rem 1.25rem;
+        padding: 1.88rem 1.25rem;
     }
 }
-
 
 @media (max-width: 500px) {
     .anwesenheitsliste th.other-col,

@@ -10,6 +10,7 @@ from flask import Flask, render_template, request
 from flask_login import LoginManager, current_user
 
 from app.models import User, get_accounts, init_db
+from extensions import limiter
 
 from .routes.admin import admin_bp
 from .routes.auth import auth_bp
@@ -18,14 +19,11 @@ from .routes.gruppe import gruppe_bp
 from .routes.index import index_bp
 from .routes.mitglieder import mitglieder_bp
 from .routes.profile import profile_bp
+from .routes.api import api_bp  # API-Blueprint importieren
 
 login_manager = LoginManager()
-# login route auf die nicht eingelogte Nutzer weitergeleitet werden
 login_manager.login_view = "auth.login"
-# Laedt den Secret Key aus .env
 load_dotenv()
-
-from extensions import limiter
 
 
 def create_app():
@@ -39,11 +37,11 @@ def create_app():
     init_db()
 
     app = Flask(__name__)
-    app.config["SECRET_KEY"] = os.getenv("SECRET_KEY")  # Secret Key aus .env
+    app.config["SECRET_KEY"] = os.getenv("SECRET_KEY")
     app.config.update(
-        SESSION_COOKIE_HTTPONLY=True,  # Session Cookie kann nicht von Java Script ausgelesen werden
-        SESSION_COOKIE_SECURE=True,  # Nur https
-        SESSION_COOKIE_SAMESITE="Lax",  # anti cross site request forgery
+        SESSION_COOKIE_HTTPONLY=True,
+        SESSION_COOKIE_SECURE=True,
+        SESSION_COOKIE_SAMESITE="Lax",
         REMEMBER_COOKIE_HTTPONLY=True,
         REMEMBER_COOKIE_SECURE=True,
         PERMANENT_SESSION_LIFETIME=timedelta(hours=72),
@@ -68,7 +66,6 @@ def create_app():
                 log_record["exception"] = self.formatException(record.exc_info)
             return json.dumps(log_record)
 
-    # Rotating File Handler für Logdateien (max 5MB pro Datei, 5 Backups)
     file_handler = RotatingFileHandler(
         "logs/app.log", maxBytes=5 * 1024 * 1024, backupCount=5
     )
@@ -184,6 +181,7 @@ def create_app():
 
         return None
 
+    # Blueprints an die App-Instanz registrieren
     app.register_blueprint(auth_bp)
     app.register_blueprint(admin_bp)
     app.register_blueprint(gruppen_bp)
@@ -191,5 +189,6 @@ def create_app():
     app.register_blueprint(mitglieder_bp)
     app.register_blueprint(profile_bp)
     app.register_blueprint(index_bp)
+    app.register_blueprint(api_bp)  # Hier wird der API-Blueprint sauber registriert
 
     return app

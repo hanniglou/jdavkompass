@@ -10,19 +10,31 @@
         <p><strong>Benutzername:</strong> {{ user[1] }}</p>
     </div>
 
+
+    {% if success %}
+    <p class="success">{{ success }}</p>
+    {% endif %}
+    {% if error %}
+    <p class="error">{{ error }}</p>
+    {% endif %}
+
+    <div class="form-card">
+        <form method="POST" action="{{ url_for('profile.profile') }}">
+            <div class="form-group">
+                <label for="username">Neuen Nutzernamen eingeben</label>
+                <input type="text" name="username" required>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn-submit">Nutzernamen ändern</button>
+            </div>
+        </form>
+    </div>
+
     <div class="form-card">
         <form method="POST" action="{{ url_for('profile.profile') }}">
 
             <div class="form-section">
                 <h3>Passwort ändern</h3>
-
-                {% if success %}
-                <p class="success">{{ success }}</p>
-                {% endif %}
-
-                {% if error %}
-                <p class="error">{{ error }}</p>
-                {% endif %}
 
                 <div class="form-grid">
 
@@ -43,6 +55,7 @@
                             pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+"
                             title="Mindestens 8 Zeichen: Großbuchstaben, Kleinbuchstaben und Zahlen">
                     </div>
+
                     <div class="form-group">
                         <label for="confirm_password">Neues Passwort bestätigen</label>
                         <input type="password" name="confirm_password" id="confirm_password" required>

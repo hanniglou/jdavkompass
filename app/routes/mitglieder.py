@@ -12,9 +12,14 @@ mitglieder_bp = Blueprint("mitglieder", __name__)
 def anmeldung():
     if request.method == "POST":
         add_mitglied_to_unapproved(request.form)
-        return render_template("erfolg.html")
+        return redirect(url_for("mitglieder.erfolg"))
 
     return render_template("anmeldung.html")
+
+
+@mitglieder_bp.route("/erfolg")
+def erfolg():
+    return render_template("erfolg.html")
 
 
 @mitglieder_bp.route("/mitglieder", methods=["GET", "POST"])

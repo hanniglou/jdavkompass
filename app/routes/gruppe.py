@@ -1,4 +1,5 @@
 import datetime
+from datetime import date, timedelta
 from io import BytesIO
 
 import pandas as pd
@@ -51,6 +52,16 @@ def gruppe(gruppe_id):
         )
         alle_daten = list(dict.fromkeys(alle_daten_mitglieder + alle_daten_gruppenleiter))
 
+    # Zeitraum-Filter aus URL lesen (Standard: aktuelles Quartal)
+    zeitraum = request.args.get("filter", "quartal")
+    if zeitraum == "quartal":
+        quartal_start_monat = ((today.month - 1) // 3) * 3 + 1
+        start_datum = date(today.year, quartal_start_monat, 1).isoformat()
+        alle_daten = [d for d in alle_daten if d >= start_datum]
+    elif zeitraum == "6monate":
+        start_datum = (today - timedelta(days=183)).isoformat()
+        alle_daten = [d for d in alle_daten if d >= start_datum]
+    # Bei "alle" bleibt alle_daten ungefiltert
 
     for mitglied in mitglieder:
         geburtsdatum = datetime.datetime.strptime(mitglied["geburtsdatum"], "%Y-%m-%d")
@@ -63,8 +74,12 @@ def gruppe(gruppe_id):
 
         update_anwesenheit(gruppe_id, "mitglied", mitglieder, request, alle_daten)
         update_anwesenheit(gruppe_id, "gruppenleiter", gruppenleiter, request, alle_daten)
+        update_vertretungen(gruppe_id, gruppenleiter, request, alle_daten)
 
-        return redirect(url_for("gruppe.gruppe", gruppe_id=gruppe_id))
+        return redirect(url_for("gruppe.gruppe", gruppe_id=gruppe_id, filter=zeitraum))
+
+    vertretungs_kandidaten = get_vertretungs_kandidaten(gruppenleiter)
+    vertretungen = get_vertretungen_by_date(gruppe_id, gruppenleiter)
 
     return render_template(
         "gruppe.html",
@@ -77,6 +92,9 @@ def gruppe(gruppe_id):
         gruppenleiter=gruppenleiter,
         gruppenleiter_anwesenheit=gruppenleiter_anwesenheit,
         avg_age=avg_age,
+        zeitraum=zeitraum,
+        vertretungs_kandidaten=vertretungs_kandidaten,
+        vertretungen=vertretungen,
     )
 
 
@@ -208,7 +226,7 @@ def download_attendance(gruppe_id):
         df, index=["Rolle", "Person"], columns="datum", values="anwesend", aggfunc="max"
     )
 
-    table = table.fillna(0).replace({1: "X", 0: ""})
+    table = table.fillna(0).replace({1: "X", 2: "E", 0: ""})
     table = table.sort_index(axis=1)
     table.columns = table.columns.strftime("%d.%m.%Y")
 

@@ -35,3 +35,26 @@ def get_account(current_user):
             (current_user.id,)
         ).fetchone()
     return user
+
+
+def update_username(user_id, username):
+    with get_accounts() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            UPDATE accounts
+            SET
+                uname = ?
+            WHERE
+                id = ?
+            """,
+            (username, user_id)
+        )
+
+
+def existing_username(username):
+    with get_accounts() as conn:
+        existing = conn.execute(
+            "SELECT id FROM accounts WHERE uname = ?", (username,)
+        ).fetchone()
+    return existing
