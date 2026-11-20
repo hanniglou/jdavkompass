@@ -22,30 +22,17 @@ def erfolg():
     return render_template("erfolg.html")
 
 
-@mitglieder_bp.route("/mitglieder", methods=["GET", "POST"])
+@mitglieder_bp.route("/mitglieder", methods=["GET"])
 @login_required
 @require_role(3)
 def mitglieder():
-    if request.method == "POST":
-        mitglied_id = request.form.get("mitglied_id")
-        action = request.form.get("action")
-
-        if not mitglied_id:
-            return redirect(url_for("mitglieder.mitglieder"))
-        if action == "approve":
-            approve(mitglied_id)
-        elif action == "reject":
-            delete_unapproved(mitglied_id)
-
-        return redirect(url_for("mitglieder.mitglieder"))
-
     mitglieder_daten = get_mitglieder_daten()
     mitglieder_unapproved_daten = get_unapproved_mitglieder_daten()
 
     return render_template(
         "mitglieder.html",
-        mitglieder_unapproved_daten=mitglieder_unapproved_daten,
         mitglieder_daten=mitglieder_daten,
+        mitglieder_unapproved_daten=mitglieder_unapproved_daten,
     )
 
 

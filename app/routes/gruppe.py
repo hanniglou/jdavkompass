@@ -6,6 +6,7 @@ import pandas as pd
 from flask import (
     Blueprint,
     abort,
+    flash,
     jsonify,
     redirect,
     render_template,
@@ -270,4 +271,51 @@ def download_attendance(gruppe_id):
         as_attachment=True,
         download_name=f"anwesenheit_gruppe_{gruppe_id}.xlsx",
         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+
+@gruppe_bp.route('/<int:gruppe_id>/bearbeiten', methods=['GET', 'POST'])
+def gruppe_bearbeiten(gruppe_id):
+    with get_kompass() as db:
+        if request.method == "POST":
+            name = request.form.get("name")
+            wochentag = request.form.get("wochentag")
+            startzeit = request.form.get("startzeit")
+            dauer = request.form.get("dauer") # Neu: Dauer auslesen
+            gruppenart = request.form.get("gruppenart")
+
+            db.execute(
+                """
+                UPDATE jugendgruppen 
+                SET name = ?, wochentag = ?, startzeit = ?, dauer = ?, gruppenart = ?
+                WHERE id = ?
+                """,
+                (name, wochentag, startzeit, dauer, gruppenart, gruppe_id),
+            )
+            db.commit()
+
+            return redirect(url_for("gruppe.gruppe", gruppe_id=gruppe_id))
+
+        gruppe = db.execute('SELECT * FROM jugendgruppen WHERE id = ?', (gruppe_id,)).fetchone()
+        mitglieder = db.execute('SELECT * FROM mitglieder ORDER BY nachname').fetchall()
+        gruppenleiter = db.execute('SELECT * FROM gruppenleiter ORDER BY nachname').fetchall()
+        
+        aktive_mitglieder = db.execute('''
+            SELECT m.* FROM mitglieder m 
+            JOIN mitglied_jugendgruppen mg ON m.id = mg.mitglied_id 
+            WHERE mg.jugendgruppe_id = ?
+        ''', (gruppe_id,)).fetchall()
+
+        aktive_leiter = db.execute('''
+            SELECT gl.* FROM gruppenleiter gl 
+            JOIN gruppenleiter_jugendgruppen glg ON gl.id = glg.gruppenleiter_id 
+            WHERE glg.jugendgruppe_id = ?
+        ''', (gruppe_id,)).fetchall()
+
+    return render_template(
+        'gruppe_bearbeiten.html',
+        gruppe=gruppe,
+        mitglieder=mitglieder,
+        gruppenleiter=gruppenleiter,
+        aktive_mitglieder=aktive_mitglieder,
+        aktive_leiter=aktive_leiter
     )

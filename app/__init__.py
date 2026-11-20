@@ -18,8 +18,9 @@ from .routes.gruppen import gruppen_bp
 from .routes.gruppe import gruppe_bp
 from .routes.index import index_bp
 from .routes.mitglieder import mitglieder_bp
+from app.routes.mitglieder_freigeben import mitglieder_freigeben_bp
 from .routes.profile import profile_bp
-from .routes.api import api_bp  # API-Blueprint importieren
+from .routes.api import api_bp
 
 login_manager = LoginManager()
 login_manager.login_view = "auth.login"
@@ -173,22 +174,28 @@ def create_app():
     def load_user(user_id):
         with get_accounts() as conn:
             row = conn.execute(
-                "SELECT id, uname, role FROM accounts WHERE id=?", (user_id,)
+                "SELECT id, uname, role, anzeigename FROM accounts WHERE id=?",
+                (user_id,),
             ).fetchone()
 
         if row:
-            return User(row["id"], row["uname"], row["role"])
+            return User(
+                row["id"],
+                row["uname"],
+                row["role"],
+                row["anzeigename"],
+            )
 
         return None
 
-    # Blueprints an die App-Instanz registrieren
     app.register_blueprint(auth_bp)
     app.register_blueprint(admin_bp)
     app.register_blueprint(gruppen_bp)
     app.register_blueprint(gruppe_bp)
     app.register_blueprint(mitglieder_bp)
+    app.register_blueprint(mitglieder_freigeben_bp)
     app.register_blueprint(profile_bp)
     app.register_blueprint(index_bp)
-    app.register_blueprint(api_bp)  # Hier wird der API-Blueprint sauber registriert
+    app.register_blueprint(api_bp)
 
     return app

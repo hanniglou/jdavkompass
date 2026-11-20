@@ -26,13 +26,14 @@ def get_account(current_user):
             SELECT
                 id,
                 uname,
-                password
+                password,
+                anzeigename
             FROM
                 accounts
             WHERE
-            id = ?
+                id = ?
             """,
-            (current_user.id,)
+            (current_user.id,),
         ).fetchone()
     return user
 
@@ -58,3 +59,18 @@ def existing_username(username):
             "SELECT id FROM accounts WHERE uname = ?", (username,)
         ).fetchone()
     return existing
+
+
+def update_display_name(user_id, anzeigename):
+    with get_accounts() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            UPDATE accounts
+            SET
+                anzeigename = ?
+            WHERE
+                id = ?
+            """,
+            (anzeigename, user_id),
+        )

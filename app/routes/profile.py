@@ -16,14 +16,13 @@ def profile():
     error = success = None
 
     if request.method == "POST":
-
         old_password = request.form.get("old_password", "")
         new_password = request.form.get("new_password", "")
         confirm_password = request.form.get("confirm_password", "")
         username = request.form.get("username", "").strip().lower()
+        anzeigename = request.form.get("anzeigename", "").strip()
 
         if old_password and new_password and confirm_password:
-
             if not check_password_hash(user["password"], old_password):
                 error = "Altes Passwort ist falsch."
             elif new_password != confirm_password:
@@ -40,5 +39,14 @@ def profile():
                 current_user.uname = username
                 user = get_account(current_user)
                 success = "Nutzernamen erfolgreich geändert."
+
+        if anzeigename:
+            if len(anzeigename) > 80:
+                error = "Der Anzeigename darf maximal 80 Zeichen lang sein."
+            else:
+                update_display_name(user["id"], anzeigename)
+                current_user.anzeigename = anzeigename
+                user = get_account(current_user)
+                success = "Anzeigenamen erfolgreich geändert."
 
     return render_template("profile.html", user=user, error=error, success=success)

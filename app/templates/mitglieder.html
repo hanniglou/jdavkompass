@@ -6,66 +6,24 @@
 <section class="page-section">
     <h1>Mitgliedermanagement</h1>
 
-    <div class="table-container mitglieder-container">
-        <h3>Mitglieder Genehmigen</h3>
-
-        {% if mitglieder_unapproved_daten %}
-        <table class="table">
-            <thead>
-                <tr>
-                    <th>Vorname</th>
-                    <th>Nachname</th>
-                    <th>Geburtsdatum</th>
-                    <th>Adresse</th>
-                    <th>Erziehungsberechtigte</th>
-                    <th>Unterschrift</th>
-                    <th>Bilder</th>
-                    <th>Aktion</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for mitglied in mitglieder_unapproved_daten %}
-                <tr>
-                    <td>{{ mitglied.vorname }}</td>
-                    <td>{{ mitglied.nachname }}</td>
-                    <td>{{ mitglied.geburtsdatum[8:10] }}.{{ mitglied.geburtsdatum[5:7] }}.{{ mitglied.geburtsdatum[0:4] }}</td>
-                    <td>
-                        {{ mitglied.strasse }} {{ mitglied.hausnummer }}<br>
-                        {{ mitglied.plz }} {{ mitglied.ort }}
-                    </td>
-                    <td>
-                        {{mitglied.erziehungsberechtigte.vorname}} {{mitglied.erziehungsberechtigte.nachname}} {{mitglied.erziehungsberechtigte.email}} {{mitglied.erziehungsberechtigte.telefon}}
-                    </td>
-                    <td>
-                        {% if mitglied.unterschrift %}
-                            <img src="{{ mitglied.unterschrift }}" style="max-width:200px; border:1px solid #ccc;">
-                        {% else %}
-                            Keine
-                        {% endif %}
-                    </td>
-                    <td>
-                    {% if mitglied.bilder %}
-                        ✅
-                    {% else %}
-                        ❌
-                    {% endif %}
-                    </td>
-                    <td>
-                        <form action="{{ url_for('mitglieder.mitglieder') }}" method="POST" style="display:flex; flex-direction:column; gap:5px;">
-                            <input type="hidden" name="mitglied_id" value="{{ mitglied.id }}">
-                            <button type="submit" name="action" value="approve" class="btn btn-success">Genehmigen</button>
-                            <button type="submit" name="action" value="reject" class="btn btn-remove">Ablehnen</button>
-                        </form>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        {% else %}
-        <div class="alert alert-info">
-            Keine Mitglieder zur Genehmigung gefunden.
+    <div class="table-container mitglieder-container antraege-banner" style="margin-bottom: 30px; display: flex; flex-direction: column; align-items: flex-start; gap: 12px;">
+        <div>
+            <h3 style="margin: 0 0 5px 0;">Offene Mitgliedsanträge</h3>
+            {% if mitglieder_unapproved_daten|length == 1 %}
+                <p style="margin: 0;">
+                    Es liegt aktuell <strong>1</strong> Mitgliedsantrag zur Freigabe vor.
+                </p>
+            {% elif mitglieder_unapproved_daten|length > 1 %}
+                <p style="margin: 0;">
+                    Es liegen aktuell <strong>{{ mitglieder_unapproved_daten|length }}</strong> Mitgliedsanträge zur Freigabe vor.
+                </p>
+            {% else %}
+                <p style="margin: 0;">Aktuell liegen keine Mitgliedsanträge zur Freigabe vor.</p>
+            {% endif %}
         </div>
-        {% endif %}
+        <a href="{{ url_for('mitglieder_freigeben.mitglieder_freigeben') }}" class="btn-freigabe">
+            Zur Mitgliederfreigabe
+        </a>
     </div>
 
     <div class="table-container">

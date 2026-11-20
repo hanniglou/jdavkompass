@@ -19,7 +19,7 @@
                 </select>
             </div>
         </div>
-        </div>
+
         <form method="post" id="attendance-form">
             <table class="table" style="width: max-content !important; table-layout: auto !important; margin-left: 0 !important;">
                 <thead>
@@ -35,9 +35,6 @@
                         </th>
                         {% endfor %}
                         <th>Notfallkontakt</th>
-                        {% if current_user.role >= 3 %}
-                        <th>Aktion</th>
-                        {% endif %}
                     </tr>
                 </thead>
                 <tbody>
@@ -65,15 +62,6 @@
                                 kein Notfallkontakt!
                             {% endif %}
                         </td>
-
-                        {% if current_user.role >= 3 %}
-                        <td>
-                            <button class="btn-remove" type="submit"
-                            form="remove-member-{{ mitglied.id }}">
-                            aus Gruppe entfernen
-                            </button>
-                        </td>
-                        {% endif %}
                     </tr>
                     {% endfor %}
 
@@ -95,17 +83,9 @@
                             kein Notfallkontakt!
                             {% endif %}
                         </td>
-
-                        {% if current_user.role >= 3 %}
-                        <td>
-                            <button class="btn-remove" type="submit"
-                                    form="remove-leader-{{ gruppenleiter.id }}">
-                                aus Gruppe entfernen
-                            </button>
-                        </td>
-                        {% endif %}
                     </tr>
                     {% endfor %}
+
                     {% for slot in [1, 2] %}
                     <tr class="gruppenleiter vertretung-row">
                         <td><em>Vertretung {{ slot }}</em></td>
@@ -127,9 +107,6 @@
                         </td>
                         {% endfor %}
                         <td>-</td>
-                        {% if current_user.role >= 3 %}
-                        <td></td>
-                        {% endif %}
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -153,109 +130,13 @@
                 Download Anwesenheitsliste
             </button>
             {% endif %}
-        </div>
-    </div>
 
-    <div class="gruppe-actions">
-        {% if current_user.role >= 2 %}
-        <div class="action-item">
-            <h3>Mitglied hinzufügen</h3>
-            <input type="text" id="search_mitglied" placeholder="Mitglied suchen..."
-                   value="{{ search_query_mitglieder }}" oninput="searchMitglied()">
-            <div id="mitglieder_results"></div>
+            {% if current_user.role >= 2 %}
+            <a href="{{ url_for('gruppe.gruppe_bearbeiten', gruppe_id=gruppe.id) }}" class="btn-submit" style="text-decoration: none; display: inline-flex; align-items: center;">
+                Gruppe bearbeiten
+            </a>
+            {% endif %}
         </div>
-        {% endif %}
-
-        {% if current_user.role >= 2 %}
-        <div class="action-item">
-            <h3>Gruppenleiter hinzufügen</h3>
-            <input type="text" id="search_gruppenleiter" placeholder="Gruppenleiter suchen..."
-                   value="{{ search_query_gruppenleiter }}" oninput="searchGruppenleiter()">
-            <div id="gruppenleiter_results"></div>
-        </div>
-        {% endif %}
-
-        {% if current_user.role >= 3 %}
-        <form action="{{ url_for('gruppen.gruppe_loeschen', gruppe_id=gruppe.id) }}"
-              method="POST"
-              onsubmit="return confirm('Gruppe wirklich löschen?');">
-            <button type="submit" class="btn-delete">Gruppe löschen</button>
-        </form>
-        {% endif %}
     </div>
 </section>
-
-<script>
-const gruppeId = Number("{{ gruppe.id }}");
-
-function searchMitglied() {
-    var query = document.getElementById("search_mitglied").value;
-    var url = '/search?query=mitglied ' + encodeURIComponent(query); // space separates keyword from actual name
-    console.log(url);
-
-    fetch(url, { method: 'GET', headers: { 'Content-Type': 'application/json' } })
-    .then(response => response.json())
-    .then(data => {
-        var resultsDiv = document.getElementById("mitglieder_results");
-        resultsDiv.innerHTML = '';
-        data.results.forEach(result => {
-            var div = document.createElement("div");
-            div.className = "result-item";
-
-            var span = document.createElement("span");
-            span.textContent = result.vorname + " " + result.nachname;
-
-            var button = document.createElement("button");
-            button.type = "button";
-            button.textContent = "hinzufügen";
-            button.onclick = function() { addMitglied(result.id); };
-
-            div.appendChild(span);
-            div.appendChild(button);
-            resultsDiv.appendChild(div);
-        });
-    })
-    .catch(error => console.error('Error:', error));
-}
-
-function searchGruppenleiter() {
-    var query = document.getElementById("search_gruppenleiter").value;
-    var url = '/search?query=leiter ' + encodeURIComponent(query); // add 'leiter ' keyword
-    console.log(url);
-
-    fetch(url, { method: 'GET', headers: { 'Content-Type': 'application/json' } })
-    .then(response => response.json())
-    .then(data => {
-        var resultsDiv = document.getElementById("gruppenleiter_results");
-        resultsDiv.innerHTML = '';
-        data.results.forEach(result => {
-            var div = document.createElement("div");
-            div.className = "result-item";
-
-            var span = document.createElement("span");
-            span.textContent = result.vorname + " " + result.nachname;
-
-            var button = document.createElement("button");
-            button.type = "button";
-            button.textContent = "hinzufügen";
-            button.onclick = function() { addGruppenleiter(result.id); };
-
-            div.appendChild(span);
-            div.appendChild(button);
-            resultsDiv.appendChild(div);
-        });
-    })
-    .catch(error => console.error('Error:', error));
-}
-
-function addMitglied(id) {
-    fetch(`/gruppe/${gruppeId}/mitglied/${id}`, { method: 'POST', headers: { 'Content-Type': 'application/json' } })
-    .then(() => { window.location.reload(); });
-}
-
-function addGruppenleiter(id) {
-    fetch(`/gruppenleiter_zu_gruppe/${gruppeId}/${id}`, { method: 'POST', headers: { 'Content-Type': 'application/json' } })
-    .then(() => { window.location.reload(); });
-}
-</script>
 {% endblock %}

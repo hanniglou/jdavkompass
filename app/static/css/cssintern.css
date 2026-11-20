@@ -213,7 +213,7 @@ button {
 
 .btn-submit {
     padding: 0.5rem 0.63rem;
-    margin-top: 1rem;
+    margin-top: 0.25rem;
 }
 
 .btn-delete,
@@ -529,4 +529,32 @@ input[type="checkbox"] {
     .anwesenheitsliste td.other-col {
         display: none;
     }
+}
+
+/* ==========================================================================
+   Dashboard-Banner: Offene Mitgliedsanträge
+   ========================================================================== */
+/* ==========================================================================
+   Dashboard-Banner: Offene Mitgliedsanträge
+   ========================================================================== */
+.table-container.antraege-banner {
+    padding: 0;
+}
+
+a.btn-freigabe,
+.btn-freigabe {
+    display: inline-block;
+    text-decoration: none;
+    cursor: pointer;
+    background-color: #2e7d32;
+    color: #fff;
+    padding: 8px 14px;
+    border: none;
+    border-radius: 4px;
+}
+
+a.btn-freigabe:hover,
+.btn-freigabe:hover {
+    background-color: #256628;
+    color: #fff;
 }

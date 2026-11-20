@@ -7,9 +7,9 @@
     <h1>Mein Profil</h1>
 
     <div class="profile-info">
-        <p><strong>Benutzername:</strong> {{ user[1] }}</p>
+        <p><strong>Benutzername:</strong> {{ user["uname"] }}</p>
+        <p><strong>Anzeigename:</strong> {{ user["anzeigename"] or user["uname"] }}</p>
     </div>
-
 
     {% if success %}
     <p class="success">{{ success }}</p>
@@ -21,8 +21,27 @@
     <div class="form-card">
         <form method="POST" action="{{ url_for('profile.profile') }}">
             <div class="form-group">
+                <label for="anzeigename">Neuen Anzeigenamen eingeben</label>
+                <input
+                    type="text"
+                    name="anzeigename"
+                    id="anzeigename"
+                    maxlength="80"
+                    placeholder="{{ user['anzeigename'] or user['uname'] }}"
+                    required
+                >
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn-submit">Anzeigenamen ändern</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="form-card">
+        <form method="POST" action="{{ url_for('profile.profile') }}">
+            <div class="form-group">
                 <label for="username">Neuen Nutzernamen eingeben</label>
-                <input type="text" name="username" required>
+                <input type="text" name="username" id="username" required>
             </div>
             <div class="form-actions">
                 <button type="submit" class="btn-submit">Nutzernamen ändern</button>

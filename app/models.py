@@ -248,7 +248,14 @@ def get_kompass():
 
 
 class User(UserMixin):
-    def __init__(self, id, username, role):
+    def __init__(self, id, username, role, anzeigename=None):
         self.id = id
         self.username = username
         self.role = role
+        self.anzeigename = anzeigename
+
+    @property
+    def display_name(self):
+        if self.anzeigename and self.anzeigename.strip():
+            return self.anzeigename.strip()
+        return self.username

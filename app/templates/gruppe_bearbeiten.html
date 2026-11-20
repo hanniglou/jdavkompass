@@ -1,0 +1,238 @@
+{% extends "base_intern.html" %}
+
+{% block title %}Gruppe bearbeiten - JDAV Hildesheim{% endblock %}
+{% block content %}
+<section class="page-section">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h1>Gruppe bearbeiten: {{ gruppe.name }}</h1>
+        <a href="{{ url_for('gruppe.gruppe', gruppe_id=gruppe.id) }}" class="btn-submit" style="text-decoration: none;">
+            ← Zurück zur Anwesenheitsliste
+        </a>
+    </div>
+
+    <!-- 1. Gruppenparameter bearbeiten -->
+    <div class="table-container" style="margin-bottom: 30px; padding: 20px;">
+        <h3>Gruppenparameter</h3>
+        <form method="POST" action="{{ url_for('gruppe.gruppe_bearbeiten', gruppe_id=gruppe.id) }}">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                <div>
+                    <label for="name">Gruppenname</label>
+                    <input type="text" id="name" name="name" value="{{ gruppe.name }}" required style="width: 100%; padding: 8px 12px; box-sizing: border-box;">
+                </div>
+                <div>
+                    <label for="wochentag">Wochentag</label>
+                    <select id="wochentag" name="wochentag" style="width: 100%; padding: 8px 12px; box-sizing: border-box;">
+                        {% for tag in ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'] %}
+                        <option value="{{ tag }}" {% if gruppe.wochentag == tag %}selected{% endif %}>{{ tag }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label for="startzeit">Startzeit</label>
+                    <input type="text" id="startzeit" name="startzeit" value="{{ gruppe.startzeit[:5] if gruppe.startzeit else '' }}" placeholder="16:00" pattern="([01]?[0-9]|2[0-3]):[0-5][0-9]" style="width: 100%; padding: 8px 12px; box-sizing: border-box;">
+                </div>
+                <div>
+                    <label for="dauer">Dauer</label>
+                    <select id="dauer" name="dauer" style="width: 100%; padding: 8px 12px; box-sizing: border-box;">
+                        <option value="60" {% if gruppe.dauer == 60 %}selected{% endif %}>60 Minuten</option>
+                        <option value="90" {% if gruppe.dauer == 90 %}selected{% endif %}>90 Minuten</option>
+                    </select>
+                </div>
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label for="gruppenart">Gruppenart</label>
+                <select id="gruppenart" name="gruppenart" style="width: 100%; padding: 8px 12px; box-sizing: border-box;">
+                    <option value="Inklusionsgruppe" {% if gruppe.gruppenart == 'Inklusionsgruppe' %}selected{% endif %}>Inklusionsgruppe</option>
+                    <option value="Bouldergruppe" {% if gruppe.gruppenart == 'Bouldergruppe' %}selected{% endif %}>Bouldergruppe</option>
+                    <option value="Minis" {% if gruppe.gruppenart == 'Minis' %}selected{% endif %}>Minis</option>
+                    <option value="Jugendgruppe" {% if gruppe.gruppenart == 'Jugendgruppe' %}selected{% endif %}>Jugendgruppe</option>
+                </select>
+            </div>
+            <button type="submit" class="btn-submit">Änderungen speichern</button>
+        </form>
+    </div>
+
+    <!-- 2. Mitglieder verwalten -->
+    <div class="table-container" style="margin-bottom: 30px; padding: 20px;">
+        <h3>Mitglieder der Gruppe ({{ aktive_mitglieder|length }})</h3>
+
+        <div style="margin-bottom: 15px;">
+            <input type="text" id="search_mitglied" placeholder="Mitglied suchen und hinzufügen..." oninput="searchMitglied()" style="width: 100%; max-width: 400px;">
+            <div id="mitglieder_results" style="margin-top: 8px;"></div>
+        </div>
+
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Geburtsdatum</th>
+                    <th>Aktion</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for mitglied in aktive_mitglieder %}
+                <tr>
+                    <td>{{ mitglied.vorname }} {{ mitglied.nachname }}</td>
+                    <td>{{ mitglied.geburtsdatum or '-' }}</td>
+                    <td>
+                        <button type="button" class="btn-remove" onclick="removeMitglied({{ mitglied.id }})">
+                            aus Gruppe entfernen
+                        </button>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="3"><em>Keine Mitglieder zugeordnet.</em></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- 3. Gruppenleiter:innen verwalten -->
+    <div class="table-container" style="margin-bottom: 30px; padding: 20px;">
+        <h3>Gruppenleiter:innen ({{ aktive_leiter|length }})</h3>
+
+        <div style="margin-bottom: 15px;">
+            <input type="text" id="search_gruppenleiter" placeholder="Gruppenleiter:in suchen und hinzufügen..." oninput="searchGruppenleiter()" style="width: 100%; max-width: 400px;">
+            <div id="gruppenleiter_results" style="margin-top: 8px;"></div>
+        </div>
+
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Aktion</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for leiter in aktive_leiter %}
+                <tr>
+                    <td>{{ leiter.vorname }} {{ leiter.nachname }}</td>
+                    <td>
+                        <button type="button" class="btn-remove" onclick="removeGruppenleiter({{ leiter.id }})">
+                            aus Gruppe entfernen
+                        </button>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="2"><em>Keine Gruppenleiter:innen zugeordnet.</em></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- 4. Gruppe löschen (nur für Admins) -->
+    {% if current_user.role >= 3 %}
+    <div class="table-container" style="padding: 20px; border: 1px solid #d9534f;">
+        <h3 style="color: #d9534f;">Gefahrenbereich</h3>
+        <p>Wenn du diese Gruppe löschst, werden alle Zuordnungen entfernt.</p>
+        <form action="{{ url_for('gruppen.gruppe_loeschen', gruppe_id=gruppe.id) }}"
+              method="POST"
+              onsubmit="return confirm('Gruppe wirklich endgültig löschen?');">
+            <button type="submit" class="btn-delete">Gruppe löschen</button>
+        </form>
+    </div>
+    {% endif %}
+</section>
+
+<script>
+const gruppeId = Number("{{ gruppe.id }}");
+
+function searchMitglied() {
+    const query = document.getElementById("search_mitglied").value;
+    if (!query.trim()) {
+        document.getElementById("mitglieder_results").innerHTML = '';
+        return;
+    }
+    fetch('/search?query=mitglied ' + encodeURIComponent(query))
+        .then(res => res.json())
+        .then(data => {
+            const resultsDiv = document.getElementById("mitglieder_results");
+            resultsDiv.innerHTML = '';
+            data.results.forEach(result => {
+                const div = document.createElement("div");
+                div.className = "result-item";
+                div.innerHTML = `<span>${result.vorname} ${result.nachname}</span> `;
+                const btn = document.createElement("button");
+                btn.type = "button";
+                btn.textContent = "hinzufügen";
+                btn.onclick = () => addMitglied(result.id);
+                div.appendChild(btn);
+                resultsDiv.appendChild(div);
+            });
+        });
+}
+
+function searchGruppenleiter() {
+    const query = document.getElementById("search_gruppenleiter").value;
+    if (!query.trim()) {
+        document.getElementById("gruppenleiter_results").innerHTML = '';
+        return;
+    }
+    fetch('/search?query=leiter ' + encodeURIComponent(query))
+        .then(res => res.json())
+        .then(data => {
+            const resultsDiv = document.getElementById("gruppenleiter_results");
+            resultsDiv.innerHTML = '';
+            data.results.forEach(result => {
+                const div = document.createElement("div");
+                div.className = "result-item";
+                div.innerHTML = `<span>${result.vorname} ${result.nachname}</span> `;
+                const btn = document.createElement("button");
+                btn.type = "button";
+                btn.textContent = "hinzufügen";
+                btn.onclick = () => addGruppenleiter(result.id);
+                div.appendChild(btn);
+                resultsDiv.appendChild(div);
+            });
+        });
+}
+
+function addMitglied(id) {
+    fetch(`/gruppe/${gruppeId}/mitglied/${id}`, { method: 'POST' })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Fehler beim Hinzufügen (' + response.status + ')');
+            }
+            window.location.reload();
+        })
+        .catch(err => alert(err.message));
+}
+
+function removeMitglied(id) {
+    fetch(`/gruppe/${gruppeId}/mitglied/${id}/entfernen`, { method: 'POST' })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Fehler beim Entfernen (' + response.status + ')');
+            }
+            window.location.reload();
+        })
+        .catch(err => alert(err.message));
+}
+
+function addGruppenleiter(id) {
+    fetch(`/gruppenleiter_zu_gruppe/${gruppeId}/${id}`, { method: 'POST' })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Fehler beim Hinzufügen (' + response.status + ')');
+            }
+            window.location.reload();
+        })
+        .catch(err => alert(err.message));
+}
+
+function removeGruppenleiter(id) {
+    fetch(`/gruppe/${gruppeId}/gruppenleiter/${id}/entfernen`, { method: 'POST' })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Fehler beim Entfernen (' + response.status + ')');
+            }
+            window.location.reload();
+        })
+        .catch(err => alert(err.message));
+}
+</script>
+{% endblock %}

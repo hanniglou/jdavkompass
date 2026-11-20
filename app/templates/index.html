@@ -4,7 +4,31 @@
 
 {% block content %}
 <section class="page-section">
-    <h1>Willkommen, {{ current_user.username }}</h1>
+    <h1>Willkommen, {{ current_user.display_name }}</h1>
+
+    {% if current_user.role >= 3 and mitglieder_unapproved_daten %}
+    <div class="table-container mitglieder-container antraege-banner" style="margin-bottom: 30px; display: flex; flex-direction: column; align-items: flex-start; gap: 12px;">
+        <div>
+            <h3 style="margin: 0 0 5px 0;">Offene Mitgliedsanträge</h3>
+            {% if mitglieder_unapproved_daten|length == 1 %}
+                <p style="margin: 0;">
+                    Es liegt aktuell <strong>1</strong> Mitgliedsantrag zur Freigabe vor.
+                </p>
+            {% elif mitglieder_unapproved_daten|length > 1 %}
+                <p style="margin: 0;">
+                    Es liegen aktuell <strong>{{ mitglieder_unapproved_daten|length }}</strong> Mitgliedsanträge zur Freigabe vor.
+                </p>
+            {% else %}
+                <p style="margin: 0;">Aktuell liegen keine Mitgliedsanträge zur Freigabe vor.</p>
+            {% endif %}
+        </div>
+        <a href="{{ url_for('mitglieder_freigeben.mitglieder_freigeben') }}" class="btn-freigabe">
+            Zur Mitgliederfreigabe
+        </a>
+    </div>
+    {% endif %}
+        
+
     <h3>
         Heute ist {{ today }}{% if heutige_gruppen %}, es finden folgende Jugendgruppen statt{% endif %}
     </h3>
