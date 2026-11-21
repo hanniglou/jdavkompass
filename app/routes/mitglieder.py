@@ -15,8 +15,7 @@ from app.services.kuendigung_service import (
 )
 from app.services.mitglieder_service import (
     add_mitglied_to_unapproved,
-    approve,
-    delete_unapproved,
+    get_mitglied_historie,
     get_mitglieder_daten,
     get_mitglieder_und_archiv,
     get_unapproved_mitglieder_daten,
@@ -92,6 +91,7 @@ def mitglied_bearbeiten(mitglied_id):
                     sende_bestaetigung=bool(request.form.get("sende_bestaetigung")),
                     adressbuch_ids_raw=request.form.getlist("adressbuch_ids"),
                     bearbeiter_name=bearbeiter,
+                    freitext=(request.form.get("kuendigung_freitext") or "").strip(),
                 )
                 log_aenderung(
                     "Kündigung manuell erfasst",
@@ -151,12 +151,15 @@ def mitglied_bearbeiten(mitglied_id):
 
     erziehungsberechtigte = mitglied.get("erziehungsberechtigte") or {}
     adressbuch_eintraege = [e for e in hole_adressbuch_eintraege() if e.get("aktiv")]
+    historie_eintraege, kuendigung_info = get_mitglied_historie(mitglied_id)
 
     return render_template(
         "mitglied_bearbeiten.html",
         mitglied=mitglied,
         erziehungsberechtigte=erziehungsberechtigte,
         adressbuch_eintraege=adressbuch_eintraege,
+        historie_eintraege=historie_eintraege,
+        kuendigung_info=kuendigung_info,
     )
 
 

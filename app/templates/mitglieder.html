@@ -20,7 +20,7 @@
     .toggle-heading-wrap {
         display: inline-flex;
         align-items: center;
-        gap: 8px;
+        gap: 6px;
         font-weight: 700;
         font-size: 1.15rem;
         color: #111827;
@@ -44,53 +44,44 @@
 <section class="page-section">
     <h1>Mitgliedermanagement</h1>
 
-    <div class="table-container mitglieder-container antraege-banner" style="margin-bottom: 30px; display: flex; flex-direction: column; align-items: flex-start; gap: 12px;">
-        <div>
-            <h3 style="margin: 0 0 5px 0;">Offene Mitgliedsanträge</h3>
-            {% if mitglieder_unapproved_daten|length == 1 %}
-                <p style="margin: 0;">
-                    Es liegt aktuell <strong>1</strong> Mitgliedsantrag zur Freigabe vor.
-                </p>
-            {% elif mitglieder_unapproved_daten|length > 1 %}
-                <p style="margin: 0;">
-                    Es liegen aktuell <strong>{{ mitglieder_unapproved_daten|length }}</strong> Mitgliedsanträge zur Freigabe vor.
-                </p>
-            {% else %}
-                <p style="margin: 0;">Aktuell liegen keine Mitgliedsanträge zur Freigabe vor.</p>
-            {% endif %}
-        </div>
-        <a href="{{ url_for('mitglieder_freigeben.mitglieder_freigeben') }}" class="btn-freigabe">
-            Zur Mitgliederfreigabe
-        </a>
-    </div>
+    <nav class="mitglieder-tabs" aria-label="Mitgliedervorgänge"
+        style="display: flex; flex-wrap: wrap; gap: 0.6rem; margin: 1rem 0 1.5rem 0; padding-bottom: 0.75rem; border-bottom: 1px solid #d1d5db;">
+        {% set anzahl_freigaben = mitglieder_unapproved_daten|length if mitglieder_unapproved_daten is defined else 0 %}
+        {% set anzahl_kuendigungen = kuendigungen_ausstehend_count if kuendigungen_ausstehend_count is defined else 0 %}
+        {% set current_tab = active_mitglieder_tab if active_mitglieder_tab is defined else 'uebersicht' %}
 
-    <div class="table-container mitglieder-container antraege-banner" style="margin-bottom: 30px; display: flex; flex-direction: column; align-items: flex-start; gap: 12px;">
-        <div>
-            <h3 style="margin: 0 0 5px 0;">Offene Kündigungen</h3>
-            {% if kuendigungen_ausstehend_count == 1 %}
-                <p style="margin: 0;">
-                    Es liegt aktuell <strong>1</strong> Kündigung zur Bearbeitung vor.
-                </p>
-            {% elif kuendigungen_ausstehend_count > 1 %}
-                <p style="margin: 0;">
-                    Es liegen aktuell <strong>{{ kuendigungen_ausstehend_count }}</strong> Kündigungen zur Bearbeitung vor.
-                </p>
-            {% else %}
-                <p style="margin: 0;">Aktuell liegen keine offenen Kündigungen zur Bearbeitung vor.</p>
-            {% endif %}
-        </div>
-        <a href="{{ url_for('mitglieder.kuendigungen_verwalten') }}"
-        class="btn-freigabe"
-        style="background-color: #dc2626; border-color: #dc2626; color: #ffffff;">
-            Zu den Kündigungen
-        </a>
-    </div>
+        {% set tabs = [
+            ('freigeben', 'mitglieder_freigeben.mitglieder_freigeben', 'Mitglieder freigeben', anzahl_freigaben, '#15803d', '#dcfce7', '#86efac'),
+            ('kuendigungen', 'mitglieder.kuendigungen_verwalten', 'Kündigungen verwalten', anzahl_kuendigungen, '#dc2626', '#fee2e2', '#fca5a5')
+        ] %}
+
+        {% for key, endpoint, label, count, accent_color, soft_bg, soft_border in tabs %}
+            {% set is_active = (current_tab == key) %}
+            <a href="{{ url_for(endpoint) }}"
+            style="display: inline-flex; align-items: center; gap: 0.45rem; padding: 0.5rem 0.95rem; border-radius: 8px; text-decoration: none; font-size: 0.92rem; font-weight: 600; transition: all 0.15s ease;
+                    {% if is_active %}
+                        background-color: {{ accent_color }}; color: #ffffff; border: 1px solid {{ accent_color }}; box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+                    {% else %}
+                        background-color: {{ soft_bg }}; color: {{ accent_color }}; border: 1px solid {{ soft_border }};
+                    {% endif %}">
+                <span>{{ label }}</span>
+                <span style="display: inline-flex; align-items: center; justify-content: center; min-width: 1.35rem; height: 1.35rem; padding: 0 0.35rem; border-radius: 999px; font-size: 0.78rem; font-weight: 700;
+                            {% if is_active %}
+                                background-color: rgba(255, 255, 255, 0.22); color: #ffffff;
+                            {% else %}
+                                background-color: #ffffff; color: {{ accent_color }}; border: 1px solid {{ soft_border }};
+                            {% endif %}">
+                    {{ count }}
+                </span>
+            </a>
+        {% endfor %}
+    </nav>
 
     <details id="alle-mitglieder-details" class="table-container" open>
         <summary class="toggle-summary" style="margin-bottom: 16px;">
             <span class="toggle-heading-wrap">
+                <span>Aktive Mitglieder</span>
                 <span class="toggle-chevron" aria-hidden="true">▾</span>
-                <span>Aktuelle Mitglieder ({{ mitglieder_daten|length }})</span>
             </span>
             <div style="display: flex; align-items: center; gap: 8px; font-weight: 400; font-size: 0.95rem;" onclick="event.stopPropagation();">
                 <label for="mitglied-suche" style="font-weight: 600;">Suche:</label>
@@ -143,8 +134,10 @@
                         {% endif %}
                     </td>
                     <td>
-                        <a href="{{ url_for('mitglieder.mitglied_bearbeiten', mitglied_id=mitglied.id) }}" class="btn btn-primary">
-                            Bearbeiten
+                        <a href="{{ url_for('mitglieder.mitglied_bearbeiten', mitglied_id=mitglied.id) }}"
+                            class="btn-freigabe"
+                            style="background-color: #4b5563; border-color: #4b5563; color: #ffffff;">
+                                Bearbeiten
                         </a>
                     </td>
                 </tr>
@@ -173,8 +166,8 @@
     <details id="archiv-mitglieder-details" class="table-container" style="margin-top: 28px;">
         <summary class="toggle-summary">
             <span class="toggle-heading-wrap">
+                <span>Archivierte Mitglieder ({{ mitglieder_archiv_daten|length }})</span>
                 <span class="toggle-chevron" aria-hidden="true">▾</span>
-                <span>Archiv gekündigter Mitglieder ({{ mitglieder_archiv_daten|length }})</span>
             </span>
             <div style="display: flex; align-items: center; gap: 8px; font-weight: 400; font-size: 0.95rem;" onclick="event.stopPropagation();">
                 <label for="archiv-suche" style="font-weight: 600;">Suche:</label>
@@ -187,7 +180,7 @@
             </div>
         </summary>
         <p style="margin: 10px 0 14px 0; color: #4b5563; font-size: 0.92rem;">
-            Hier erscheinen gekündigte Kinder, deren Kündigungsquartal sowie das darauffolgende Quartal abgelaufen sind.
+            Hier erscheinen Länger als ein Quartal gekündigte oder archivierte Mitglieder.
         </p>
 
         {% if mitglieder_archiv_daten %}

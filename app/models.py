@@ -23,6 +23,7 @@ def init_db():
             bilder BOOLEAN,
             unterschrift TEXT,
             mitgliedsnummer TEXT,
+            archiviert INTEGER NOT NULL DEFAULT 0,
             FOREIGN KEY (adresse_id) REFERENCES adressen(id)
         );
         """,
@@ -236,6 +237,21 @@ def init_db():
             aktiv BOOLEAN NOT NULL DEFAULT 1
         );
         """,
+        """
+        CREATE TABLE IF NOT EXISTS mitglied_historie (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            mitglied_id INTEGER NOT NULL,
+            ereignis_typ TEXT NOT NULL,
+            zeitpunkt TEXT NOT NULL,
+            bearbeiter_uname TEXT,
+            detail_text TEXT,
+            vorgangsnummer TEXT
+        );
+        """,
+        """
+        CREATE INDEX IF NOT EXISTS idx_mitglied_historie_mitglied_id
+        ON mitglied_historie(mitglied_id);
+        """,
     ]
 
     statements_accounts = [
@@ -256,6 +272,10 @@ def init_db():
         for statement in statements_kompass:
             cursor.execute(statement)
 
+        # Migrationen für mitglieder
+        if not _column_exists(cursor, "mitglieder", "archiviert"):
+            cursor.execute("ALTER TABLE mitglieder ADD COLUMN archiviert INTEGER NOT NULL DEFAULT 0;")
+
         # Migrationen für jugendgruppen
         if not _column_exists(cursor, "jugendgruppen", "dauer"):
             cursor.execute("ALTER TABLE jugendgruppen ADD COLUMN dauer INTEGER;")
@@ -269,7 +289,7 @@ def init_db():
             cursor.execute("ALTER TABLE kuendigungen ADD COLUMN vorgangsnummer TEXT;")
         if not _column_exists(cursor, "mail_templates", "html_vorlage"):
             cursor.execute("ALTER TABLE mail_templates ADD COLUMN html_vorlage TEXT;")
-        
+
         # Migrationen für Kündigungsverarbeitung & Vermerk in 'mitglieder'
         if not _column_exists(cursor, "mitglieder", "kuendigung_datum"):
             cursor.execute("ALTER TABLE mitglieder ADD COLUMN kuendigung_datum DATE;")

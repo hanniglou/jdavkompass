@@ -23,6 +23,10 @@ from app.routes.auth import require_role
 from app.services.admin_service import log_aenderung
 from app.services.utils import heute
 from app.services.gruppe_service import *
+from app.services.mitglieder_service import (
+    log_gruppenaufnahme_historie,
+    log_gruppenentfernung_historie,
+)
 
 gruppe_bp = Blueprint("gruppe", __name__)
 
@@ -209,9 +213,16 @@ def search():
 @require_role(2)
 def mitglied_zu_gruppe(gruppe_id, mitglied_id):
     mitglied_zu_gruppe_hinzufuegen(gruppe_id, mitglied_id)
+    gruppe_info = get_gruppe(gruppe_id)
+    gruppen_name = gruppe_info["name"] if gruppe_info else f"Gruppe {gruppe_id}"
+    log_gruppenaufnahme_historie(
+        mitglied_id=mitglied_id,
+        gruppen_name=gruppen_name,
+        bearbeiter_uname=current_user.display_name,
+    )
     log_aenderung(
         "Mitglied zu Gruppe hinzugefügt",
-        f"Mitglied-ID {mitglied_id} -> Gruppe-ID {gruppe_id}",
+        f"Mitglied-ID {mitglied_id} -> {gruppen_name} (ID {gruppe_id})",
     )
 
     return redirect(url_for("gruppe.gruppe", gruppe_id=gruppe_id))
@@ -239,9 +250,16 @@ def gruppenleiter_zu_gruppe(gruppe_id, gruppenleiter_id):
 @require_role(3)
 def mitglied_entfernen(gruppe_id, mitglied_id):
     mitglied_aus_gruppe_entfernen(gruppe_id, mitglied_id)
+    gruppe_info = get_gruppe(gruppe_id)
+    gruppen_name = gruppe_info["name"] if gruppe_info else f"Gruppe {gruppe_id}"
+    log_gruppenentfernung_historie(
+        mitglied_id=mitglied_id,
+        gruppen_name=gruppen_name,
+        bearbeiter_uname=current_user.display_name,
+    )
     log_aenderung(
         "Mitglied aus Gruppe entfernt",
-        f"Mitglied-ID {mitglied_id} <- Gruppe-ID {gruppe_id}",
+        f"Mitglied-ID {mitglied_id} <- {gruppen_name} (ID {gruppe_id})",
     )
 
     return redirect(url_for("gruppe.gruppe", gruppe_id=gruppe_id))
