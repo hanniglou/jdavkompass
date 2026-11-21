@@ -27,10 +27,14 @@ from app.services.admin_service import (
 )
 from app.services.gruppe_service import baue_anwesenheits_excel
 from app.services.mail_service import (
+    SYSTEM_TEMPLATE_SCHLUESSEL,
+    erstelle_mail_template,
     hole_adressbuch_eintraege,
     hole_alle_mail_templates,
     hole_mail_konfiguration,
     loesche_adressbuch_eintrag,
+    loesche_mail_template,
+    sende_test_mail,
     speichere_adressbuch_eintrag,
     speichere_mail_konfiguration,
     speichere_mail_template,
@@ -166,10 +170,61 @@ def gruppenleiter_bearbeiten(gruppenleiter_id):
 @login_required
 @require_role(4)
 def admin_email():
+    aktiver_schluessel = request.args.get("tpl", "").strip()
+
     if request.method == "POST":
         form_typ = request.form.get("form_typ")
+        aktiver_schluessel = request.form.get("schluessel", aktiver_schluessel).strip()
 
-        if form_typ == "smtp":
+        if form_typ == "template_create":
+            bezeichnung = request.form.get("bezeichnung", "").strip()
+            betreff = request.form.get("betreff", "").strip()
+            text_vorlage = request.form.get("text_vorlage", "").strip()
+            html_vorlage = request.form.get("html_vorlage", "")
+
+            if bezeichnung and betreff and text_vorlage:
+                neuer_schluessel = erstelle_mail_template(
+                    bezeichnung=bezeichnung,
+                    betreff=betreff,
+                    text_vorlage=text_vorlage,
+                    html_vorlage=html_vorlage,
+                )
+                log_aenderung("E-Mail-Vorlage erstellt", f"{bezeichnung} ({neuer_schluessel})")
+                flash(f"Neue Vorlage „{bezeichnung}“ wurde angelegt.", "success")
+                return redirect(url_for("admin.admin_email", tpl=neuer_schluessel))
+            else:
+                flash("Bezeichnung, Betreff und Klartext-Vorlage dürfen nicht leer sein.", "error")
+
+        elif form_typ == "template":
+            schluessel = request.form.get("schluessel", "").strip()
+            bezeichnung = request.form.get("bezeichnung", "").strip()
+            betreff = request.form.get("betreff", "").strip()
+            text_vorlage = request.form.get("text_vorlage", "").strip()
+            html_vorlage = request.form.get("html_vorlage", "")
+            if schluessel and betreff and text_vorlage:
+                speichere_mail_template(
+                    schluessel=schluessel,
+                    betreff=betreff,
+                    text_vorlage=text_vorlage,
+                    html_vorlage=html_vorlage,
+                    bezeichnung=bezeichnung,
+                )
+                log_aenderung("E-Mail-Vorlage gespeichert", f"Schlüssel: {schluessel}")
+                flash("E-Mail-Vorlage wurde gespeichert.", "success")
+                return redirect(url_for("admin.admin_email", tpl=schluessel))
+            else:
+                flash("Betreff und Klartext-Vorlage dürfen nicht leer sein.", "error")
+
+        elif form_typ == "template_delete":
+            schluessel = request.form.get("schluessel", "").strip()
+            if loesche_mail_template(schluessel):
+                log_aenderung("E-Mail-Vorlage gelöscht", f"Schlüssel: {schluessel}")
+                flash("E-Mail-Vorlage wurde gelöscht.", "success")
+                return redirect(url_for("admin.admin_email"))
+            else:
+                flash("System-Vorlagen können nicht gelöscht werden.", "error")
+
+        elif form_typ == "smtp":
             smtp_server = request.form.get("smtp_server", "").strip()
             smtp_port_raw = request.form.get("smtp_port", "465").strip()
             smtp_username = request.form.get("smtp_username", "").strip()
@@ -193,17 +248,19 @@ def admin_email():
             except ValueError:
                 flash("Bitte einen gültigen SMTP-Port (Zahl) eingeben.", "error")
 
-        elif form_typ == "template":
-            schluessel = request.form.get("schluessel", "").strip()
-            betreff = request.form.get("betreff", "").strip()
-            text_vorlage = request.form.get("text_vorlage", "").strip()
-            html_vorlage = request.form.get("html_vorlage", "")
-            if schluessel and betreff and text_vorlage:
-                speichere_mail_template(schluessel, betreff, text_vorlage, html_vorlage)
-                log_aenderung("E-Mail-Vorlage gespeichert", f"Schlüssel: {schluessel}")
-                flash("E-Mail-Vorlage wurde gespeichert.", "success")
+        elif form_typ == "test_mail":
+            test_schluessel = request.form.get("test_schluessel", "").strip()
+            empfaenger_email = request.form.get("empfaenger_email", "").strip()
+            if not test_schluessel or not empfaenger_email:
+                flash("Bitte eine Vorlage und eine Empfänger-Adresse auswählen.", "error")
             else:
-                flash("Betreff und Textvorlage dürfen nicht leer sein.", "error")
+                try:
+                    betreff_gesendet = sende_test_mail(test_schluessel, empfaenger_email)
+                    log_aenderung("Test-E-Mail versendet", f"{betreff_gesendet} -> {empfaenger_email}")
+                    flash(f"Test-E-Mail wurde erfolgreich an {empfaenger_email} gesendet.", "success")
+                except Exception as exc:
+                    flash(f"Fehler beim Test-Mail-Versand: {exc}", "error")
+            return redirect(url_for("admin.admin_email", tpl=test_schluessel or aktiver_schluessel))
 
         elif form_typ == "adressbuch_add":
             bezeichnung = request.form.get("bezeichnung", "").strip()
@@ -224,13 +281,21 @@ def admin_email():
             except (TypeError, ValueError):
                 flash("Ungültiger Adressbuch-Eintrag.", "error")
 
-        return redirect(url_for("admin.admin_email"))
+        return redirect(url_for("admin.admin_email", tpl=aktiver_schluessel))
+
+    templates = hole_alle_mail_templates()
+    gewaehltes_template = next(
+        (t for t in templates if t["schluessel"] == aktiver_schluessel),
+        templates[0] if templates else None,
+    )
 
     return render_template(
         "admin/email.html",
         active_tab="email",
         mail_cfg=hole_mail_konfiguration(),
-        templates=hole_alle_mail_templates(),
+        templates=templates,
+        gewaehltes_template=gewaehltes_template,
+        system_schluessel=SYSTEM_TEMPLATE_SCHLUESSEL,
         adressbuch=hole_adressbuch_eintraege(),
     )
 

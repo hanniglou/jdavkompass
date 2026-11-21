@@ -613,9 +613,10 @@ def manuelle_kuendigung_erfassen(
                     erstellt_am, mitglied_vorname, mitglied_nachname,
                     eb_vorname, eb_nachname, eb_email,
                     kuendigungsart, kuendigungsdatum, dav_sektion_kuendigen,
-                    grund, status, vorgangsnummer, bestaetigt_am,
+                    grund, datenschutz_bestaetigt, richtigkeit_bestaetigt,
+                    unterschrift, status, vorgangsnummer, bestaetigt_am,
                     bestaetigt_von, bestaetigung_gesendet
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'bestaetigt', ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'bestaetigt', ?, ?, ?, ?)
                 """,
                 (
                     jetzt_str,
@@ -628,6 +629,9 @@ def manuelle_kuendigung_erfassen(
                     k_datum_iso,
                     1,
                     "Manuell im Mitgliedermanagement erfasst",
+                    1,
+                    1,
+                    "",
                     vorgangsnummer,
                     jetzt_str,
                     bearbeiter_name or None,
@@ -655,9 +659,17 @@ def manuelle_kuendigung_erfassen(
     }
 
     bestaetigung_gesendet = False
-    if sende_bestaetigung and mail_daten["eb_email"]:
-        sende_kuendigungsbestaetigung(mail_daten, freitext="")
-        bestaetigung_gesendet = True
+    mail_fehler: list[str] = []
+
+    if sende_bestaetigung:
+        if mail_daten["eb_email"]:
+            try:
+                sende_kuendigungsbestaetigung(mail_daten, freitext="")
+                bestaetigung_gesendet = True
+            except Exception as exc:
+                mail_fehler.append(f"Bestätigungs-Mail fehlgeschlagen: {exc}")
+        else:
+            mail_fehler.append("Keine E-Mail-Adresse bei den Erziehungsberechtigten hinterlegt.")
 
     selected_ids = set()
     for raw_id in adressbuch_ids_raw or []:
@@ -671,17 +683,21 @@ def manuelle_kuendigung_erfassen(
     ]
     interne_mails_gesendet = 0
     if ausgewaehlte_empfaenger:
-        interne_mails_gesendet = sende_interne_kuendigungs_info(
-            ausgewaehlte_empfaenger,
-            mail_daten,
-            freitext="",
-        )
+        try:
+            interne_mails_gesendet = sende_interne_kuendigungs_info(
+                ausgewaehlte_empfaenger,
+                mail_daten,
+                freitext="",
+            )
+        except Exception as exc:
+            mail_fehler.append(f"Interne Info-Mail fehlgeschlagen: {exc}")
 
     return {
         "vorgangsnummer": vorgangsnummer,
         "kuendigung_datum_de": k_datum_de,
         "bestaetigung_gesendet": bestaetigung_gesendet,
         "interne_mails_gesendet": interne_mails_gesendet,
+        "mail_fehler": mail_fehler,
     }
 
 

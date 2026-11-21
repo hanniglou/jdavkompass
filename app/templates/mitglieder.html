@@ -3,6 +3,44 @@
 {% block title %}Mitgliederübersicht - JDAV Hildesheim{% endblock %}
 
 {% block content %}
+<style>
+    .toggle-summary {
+        list-style: none;
+        cursor: pointer;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        user-select: none;
+    }
+    .toggle-summary::-webkit-details-marker {
+        display: none;
+    }
+    .toggle-heading-wrap {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 700;
+        font-size: 1.15rem;
+        color: #111827;
+        transition: color 0.15s ease;
+    }
+    .toggle-summary:hover .toggle-heading-wrap {
+        color: #1d4ed8;
+    }
+    .toggle-chevron {
+        display: inline-block;
+        font-size: 0.9rem;
+        color: #4b5563;
+        transition: transform 0.2s ease;
+        transform: rotate(-90deg);
+    }
+    details[open] > .toggle-summary .toggle-chevron {
+        transform: rotate(0deg);
+    }
+</style>
+
 <section class="page-section">
     <h1>Mitgliedermanagement</h1>
 
@@ -48,10 +86,13 @@
         </a>
     </div>
 
-    <div class="table-container">
-        <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 16px;">
-            <h3 style="margin: 0;">Alle Mitglieder</h3>
-            <div style="display: flex; align-items: center; gap: 8px;">
+    <details id="alle-mitglieder-details" class="table-container" open>
+        <summary class="toggle-summary" style="margin-bottom: 16px;">
+            <span class="toggle-heading-wrap">
+                <span class="toggle-chevron" aria-hidden="true">▾</span>
+                <span>Aktuelle Mitglieder ({{ mitglieder_daten|length }})</span>
+            </span>
+            <div style="display: flex; align-items: center; gap: 8px; font-weight: 400; font-size: 0.95rem;" onclick="event.stopPropagation();">
                 <label for="mitglied-suche" style="font-weight: 600;">Suche:</label>
                 <input
                     type="search"
@@ -60,10 +101,10 @@
                     style="padding: 0.42rem 0.7rem; border-radius: 6px; border: 1px solid #cbd5e1; min-width: 240px;"
                 >
             </div>
-        </div>
+        </summary>
 
         {% if mitglieder_daten %}
-        <table class="table">
+        <table id="mitglieder-tabelle" class="table">
             <thead>
                 <tr>
                     <th>Vorname</th>
@@ -127,18 +168,30 @@
             Keine Mitglieder vorhanden.
         </div>
         {% endif %}
-    </div>
+    </details>
 
-    <details class="table-container" style="margin-top: 28px;">
-        <summary style="cursor: pointer; font-weight: 700; font-size: 1.05rem; color: #374151; list-style: revert;">
-            Archiv gekündigter Mitglieder ({{ mitglieder_archiv_daten|length }})
+    <details id="archiv-mitglieder-details" class="table-container" style="margin-top: 28px;">
+        <summary class="toggle-summary">
+            <span class="toggle-heading-wrap">
+                <span class="toggle-chevron" aria-hidden="true">▾</span>
+                <span>Archiv gekündigter Mitglieder ({{ mitglieder_archiv_daten|length }})</span>
+            </span>
+            <div style="display: flex; align-items: center; gap: 8px; font-weight: 400; font-size: 0.95rem;" onclick="event.stopPropagation();">
+                <label for="archiv-suche" style="font-weight: 600;">Suche:</label>
+                <input
+                    type="search"
+                    id="archiv-suche"
+                    placeholder="Name, Gruppe, Datum, Ort..."
+                    style="padding: 0.42rem 0.7rem; border-radius: 6px; border: 1px solid #cbd5e1; min-width: 240px;"
+                >
+            </div>
         </summary>
         <p style="margin: 10px 0 14px 0; color: #4b5563; font-size: 0.92rem;">
             Hier erscheinen gekündigte Kinder, deren Kündigungsquartal sowie das darauffolgende Quartal abgelaufen sind.
         </p>
 
         {% if mitglieder_archiv_daten %}
-        <table class="table">
+        <table id="archiv-tabelle" class="table">
             <thead>
                 <tr>
                     <th>Vorname</th>
@@ -185,6 +238,9 @@
                 {% endfor %}
             </tbody>
         </table>
+        <p id="keine-archiv-suchtreffer" style="display: none; margin-top: 12px; color: #6b7280;">
+            Keine passenden Archiv-Einträge für den Suchbegriff gefunden.
+        </p>
         {% else %}
         <div class="alert alert-info" style="margin-bottom: 0;">
             Aktuell befinden sich keine gekündigten Mitglieder im Archiv.
@@ -195,47 +251,66 @@
 
 <script>
 document.addEventListener("DOMContentLoaded", function () {
-    const searchInput = document.getElementById("mitglied-suche");
-    const noResultsMsg = document.getElementById("keine-suchtreffer");
-    const tables = document.querySelectorAll(".table");
-    if (!tables.length) return;
+    const memberSearchInput = document.getElementById("mitglied-suche");
+    const archiveSearchInput = document.getElementById("archiv-suche");
+    const mainDetails = document.getElementById("alle-mitglieder-details");
+    const archiveDetails = document.getElementById("archiv-mitglieder-details");
+    const noMemberResultsMsg = document.getElementById("keine-suchtreffer");
+    const noArchiveResultsMsg = document.getElementById("keine-archiv-suchtreffer");
+    const memberTable = document.getElementById("mitglieder-tabelle");
+    const archiveTable = document.getElementById("archiv-tabelle");
+    const allTables = Array.from(document.querySelectorAll(".table"));
+    if (!allTables.length) return;
 
-    function applyFilter() {
-        if (!searchInput) return;
-        const term = searchInput.value.trim().toLowerCase();
-        let visibleMainRows = 0;
+    function filterTable(table, searchInput, detailsEl, noResultsEl, autoOpen) {
+        if (!table) return;
+        const tbody = table.querySelector("tbody");
+        if (!tbody) return;
 
-        tables.forEach((table, idx) => {
-            const tbody = table.querySelector("tbody");
-            if (!tbody) return;
-            const memberRows = tbody.querySelectorAll("tr.mitglied-row");
+        const term = searchInput ? searchInput.value.trim().toLowerCase() : "";
+        if (autoOpen && term && detailsEl && !detailsEl.open) {
+            detailsEl.open = true;
+        }
 
-            memberRows.forEach(row => {
-                const mid = row.dataset.mitgliedId;
-                const hintRow = mid ? tbody.querySelector(`tr.kuendigung-hinweis-row[data-for-mitglied="${mid}"]`) : null;
-                const combinedText = (row.textContent + " " + (hintRow ? hintRow.textContent : "")).toLowerCase();
-                const matches = !term || combinedText.includes(term);
+        let visibleRows = 0;
+        const memberRows = tbody.querySelectorAll("tr.mitglied-row");
 
-                row.style.display = matches ? "" : "none";
-                if (hintRow) {
-                    hintRow.style.display = matches ? "" : "none";
-                }
-                if (idx === 0 && matches) {
-                    visibleMainRows += 1;
-                }
-            });
+        memberRows.forEach(row => {
+            const mid = row.dataset.mitgliedId;
+            const hintRow = mid ? tbody.querySelector(`tr.kuendigung-hinweis-row[data-for-mitglied="${mid}"]`) : null;
+            const combinedText = (row.textContent + " " + (hintRow ? hintRow.textContent : "")).toLowerCase();
+            const matches = !term || combinedText.includes(term);
+
+            row.style.display = matches ? "" : "none";
+            if (hintRow) {
+                hintRow.style.display = matches ? "" : "none";
+            }
+            if (matches) {
+                visibleRows += 1;
+            }
         });
 
-        if (noResultsMsg) {
-            noResultsMsg.style.display = (term && visibleMainRows === 0) ? "block" : "none";
+        if (noResultsEl) {
+            noResultsEl.style.display = (term && visibleRows === 0) ? "block" : "none";
         }
     }
 
-    if (searchInput) {
-        searchInput.addEventListener("input", applyFilter);
+    function applyMemberFilter() {
+        filterTable(memberTable, memberSearchInput, mainDetails, noMemberResultsMsg, true);
     }
 
-    tables.forEach(table => {
+    function applyArchiveFilter() {
+        filterTable(archiveTable, archiveSearchInput, archiveDetails, noArchiveResultsMsg, true);
+    }
+
+    if (memberSearchInput) {
+        memberSearchInput.addEventListener("input", applyMemberFilter);
+    }
+    if (archiveSearchInput) {
+        archiveSearchInput.addEventListener("input", applyArchiveFilter);
+    }
+
+    allTables.forEach(table => {
         const headers = table.querySelectorAll("thead th");
         const tbody = table.querySelector("tbody");
         if (!tbody) return;
@@ -317,7 +392,12 @@ document.addEventListener("DOMContentLoaded", function () {
                         tbody.appendChild(hintRow);
                     }
                 });
-                applyFilter();
+
+                if (table === archiveTable) {
+                    applyArchiveFilter();
+                } else {
+                    applyMemberFilter();
+                }
             });
         });
     });

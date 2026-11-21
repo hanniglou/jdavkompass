@@ -5,6 +5,7 @@ from flask_login import current_user, login_required
 from app.models import get_kompass
 from app.routes.auth import require_role
 from app.services.admin_service import log_aenderung
+from app.services.mail_service import hole_adressbuch_eintraege
 from app.services.kuendigung_service import (
     KUENDIGUNG_FILTER_LABELS,
     bestaetige_kuendigung,
@@ -12,8 +13,17 @@ from app.services.kuendigung_service import (
     get_kuendigungen,
     verwerfe_kuendigung,
 )
-from app.services.mail_service import hole_adressbuch_eintraege
-from app.services.mitglieder_service import *
+from app.services.mitglieder_service import (
+    add_mitglied_to_unapproved,
+    approve,
+    delete_unapproved,
+    get_mitglieder_daten,
+    get_mitglieder_und_archiv,
+    get_unapproved_mitglieder_daten,
+    manuelle_kuendigung_erfassen,
+    setze_mitglied_archiviert,
+    update_mitglied,
+)
 
 mitglieder_bp = Blueprint("mitglieder", __name__)
 
@@ -97,6 +107,8 @@ def mitglied_bearbeiten(mitglied_id):
                 if ergebnis["interne_mails_gesendet"]:
                     msg += f" {ergebnis['interne_mails_gesendet']} interne Info-Mail(s) versendet."
                 flash(msg, "success")
+                for mf in ergebnis.get("mail_fehler") or []:
+                    flash(mf, "warning")
             except Exception as exc:
                 flash(f"Fehler beim Erfassen der Kündigung: {exc}", "error")
             return redirect(url_for("mitglieder.mitglied_bearbeiten", mitglied_id=mitglied_id))
@@ -238,46 +250,3 @@ def kuendigung_verwerfen_route(kuendigung_id):
         flash(f"Fehler beim Verwerfen der Kündigung: {exc}", "error")
 
     return redirect(url_for("mitglieder.kuendigungen_verwalten"))
-
-
-def _parse_iso_datum(wert):
-    if not wert:
-        return None
-    text = str(wert).strip()[:10]
-    try:
-        teile = text.split("-")
-        if len(teile) == 3:
-            return date(int(teile[0]), int(teile[1]), int(teile[2]))
-    except (ValueError, TypeError):
-        return None
-    return None
-
-
-def _quartal_index(d: date) -> int:
-    return d.year * 4 + (d.month - 1) // 3
-
-
-def get_mitglieder_und_archiv():
-    alle_mitglieder = get_mitglieder_daten()
-    heute_datum = date.today()
-    aktuelles_quartal = _quartal_index(heute_datum)
-
-    aktive_mitglieder = []
-    archiv_mitglieder = []
-
-    for m in alle_mitglieder:
-        k_datum = _parse_iso_datum(m.get("kuendigung_datum"))
-        m_angereichert = {
-            **m,
-            "kuendigung_datum_de": k_datum.strftime("%d.%m.%Y") if k_datum else None,
-        }
-
-        if k_datum is not None:
-            kuendigung_quartal = _quartal_index(k_datum)
-            if (aktuelles_quartal - kuendigung_quartal) >= 2:
-                archiv_mitglieder.append(m_angereichert)
-                continue
-
-        aktive_mitglieder.append(m_angereichert)
-
-    return aktive_mitglieder, archiv_mitglieder

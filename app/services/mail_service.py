@@ -1,10 +1,13 @@
 import html
 import os
+import re
 import smtplib
 from datetime import datetime
 from email.message import EmailMessage
 
 from app.models import get_kompass
+
+SYSTEM_TEMPLATE_SCHLUESSEL = {"kuendigung_eingang", "kuendigung_bestaetigt"}
 
 
 def hole_mail_konfiguration() -> dict:
@@ -94,23 +97,99 @@ def hole_mail_template(schluessel: str) -> dict | None:
     return dict(row) if row else None
 
 
+def _generiere_template_schluessel(bezeichnung: str) -> str:
+    basis = bezeichnung.strip().lower()
+    ersetzungen = {"ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss"}
+    for alt, neu in ersetzungen.items():
+        basis = basis.replace(alt, neu)
+    basis = re.sub(r"[^a-z0-9]+", "_", basis).strip("_")
+    if not basis:
+        basis = "vorlage"
+
+    with get_kompass() as conn:
+        kandidat = basis
+        zaehler = 2
+        while conn.execute(
+            "SELECT 1 FROM mail_templates WHERE schluessel = ?", (kandidat,)
+        ).fetchone():
+            kandidat = f"{basis}_{zaehler}"
+            zaehler += 1
+    return kandidat
+
+
+def erstelle_mail_template(
+    bezeichnung: str,
+    betreff: str,
+    text_vorlage: str,
+    html_vorlage: str | None = None,
+    schluessel: str | None = None,
+) -> str:
+    ziel_schluessel = (schluessel or "").strip() or _generiere_template_schluessel(bezeichnung)
+    jetzt = datetime.now().isoformat(sep=" ", timespec="seconds")
+    bereinigt_html = (html_vorlage or "").strip() or None
+
+    with get_kompass() as conn:
+        conn.execute(
+            """
+            INSERT INTO mail_templates (
+                schluessel, bezeichnung, betreff, text_vorlage, html_vorlage, aktualisiert_am
+            ) VALUES (?, ?, ?, ?, ?, ?);
+            """,
+            (
+                ziel_schluessel,
+                bezeichnung.strip(),
+                betreff.strip(),
+                text_vorlage.strip(),
+                bereinigt_html,
+                jetzt,
+            ),
+        )
+    return ziel_schluessel
+
+
 def speichere_mail_template(
     schluessel: str,
     betreff: str,
     text_vorlage: str,
     html_vorlage: str | None = None,
+    bezeichnung: str | None = None,
 ) -> None:
     jetzt = datetime.now().isoformat(sep=" ", timespec="seconds")
     bereinigt_html = (html_vorlage or "").strip() or None
     with get_kompass() as conn:
-        conn.execute(
-            """
-            UPDATE mail_templates
-            SET betreff = ?, text_vorlage = ?, html_vorlage = ?, aktualisiert_am = ?
-            WHERE schluessel = ?;
-            """,
-            (betreff.strip(), text_vorlage.strip(), bereinigt_html, jetzt, schluessel),
-        )
+        if bezeichnung and bezeichnung.strip():
+            conn.execute(
+                """
+                UPDATE mail_templates
+                SET bezeichnung = ?, betreff = ?, text_vorlage = ?, html_vorlage = ?, aktualisiert_am = ?
+                WHERE schluessel = ?;
+                """,
+                (
+                    bezeichnung.strip(),
+                    betreff.strip(),
+                    text_vorlage.strip(),
+                    bereinigt_html,
+                    jetzt,
+                    schluessel,
+                ),
+            )
+        else:
+            conn.execute(
+                """
+                UPDATE mail_templates
+                SET betreff = ?, text_vorlage = ?, html_vorlage = ?, aktualisiert_am = ?
+                WHERE schluessel = ?;
+                """,
+                (betreff.strip(), text_vorlage.strip(), bereinigt_html, jetzt, schluessel),
+            )
+
+
+def loesche_mail_template(schluessel: str) -> bool:
+    if schluessel in SYSTEM_TEMPLATE_SCHLUESSEL:
+        return False
+    with get_kompass() as conn:
+        cur = conn.execute("DELETE FROM mail_templates WHERE schluessel = ?;", (schluessel,))
+    return cur.rowcount > 0
 
 
 def _ersetze_platzhalter(vorlage: str, werte: dict) -> str:
@@ -129,7 +208,7 @@ def _text_zu_html_absaetzen(text: str) -> str:
     return "\n".join(html_teile)
 
 
-def sende_kuendigungs_eingangsbestaetigung(daten: dict) -> bool:
+def _sende_mail(to_addr: str, subject: str, plain_body: str, html_body: str) -> None:
     cfg = hole_mail_konfiguration()
     smtp_server = cfg["smtp_server"]
     smtp_port = cfg["smtp_port"]
@@ -140,6 +219,76 @@ def sende_kuendigungs_eingangsbestaetigung(daten: dict) -> bool:
     if not password:
         raise RuntimeError("Kein SMTP-Passwort hinterlegt (weder in der E-Mail-Verwaltung noch in .env).")
 
+    msg = EmailMessage()
+    msg["Subject"] = subject
+    msg["From"] = f"{sender_name} <{username}>"
+    msg["To"] = to_addr
+    msg["Reply-To"] = username
+    msg.set_content(plain_body)
+    msg.add_alternative(html_body, subtype="html")
+
+    with smtplib.SMTP_SSL(smtp_server, smtp_port, timeout=20) as server:
+        server.login(username, password)
+        server.send_message(msg)
+
+
+def sende_test_mail(schluessel: str, empfaenger_email: str) -> str:
+    tpl = hole_mail_template(schluessel)
+    if not tpl:
+        raise ValueError("Die ausgewählte E-Mail-Vorlage wurde nicht gefunden.")
+
+    beispieldaten_plain = {
+        "vorgangsnummer": "TEST-2026-001",
+        "kind_name": "Mia Musterkind",
+        "eb_name": "Alex Musterperson",
+        "eb_email": empfaenger_email,
+        "kuendigungsdatum": "31.12.2026",
+        "kuendigungsart": "Zum Quartalsende",
+        "grund": "Umzug / Testlauf aus dem Admin-Panel",
+        "erstellt_am": datetime.now().strftime("%d.%m.%Y %H:%M"),
+        "dav_hinweis": (
+            "\nWICHTIGER HINWEIS ZUR DAV-SEKTIONSMITGLIEDSCHAFT:\n"
+            "Dies ist der automatische Hinweisblock für die DAV-Sektionsmitgliedschaft.\n"
+        ),
+        "freitext": "Dies ist ein individueller Zusatztext aus dem Freitext-Feld.\n\n",
+    }
+
+    beispieldaten_html = {
+        **{k: html.escape(v) for k, v in beispieldaten_plain.items()},
+        "dav_hinweis": (
+            "<div style='margin: 16px 0; padding: 12px 14px; border-left: 4px solid #d97706; background: #fffbeb; color: #78350f;'>"
+            "<strong>Wichtiger Hinweis zur DAV-Sektionsmitgliedschaft:</strong><br>"
+            "Dies ist der automatische Hinweisblock für die DAV-Sektionsmitgliedschaft."
+            "</div>"
+        ),
+        "freitext": (
+            "<div style='margin: 0 0 16px 0;'>"
+            "<p>Dies ist ein individueller Zusatztext aus dem Freitext-Feld.</p>"
+            "</div>"
+        ),
+    }
+
+    subject = f"[TEST] {_ersetze_platzhalter(tpl['betreff'], beispieldaten_plain)}"
+    plain_body = _ersetze_platzhalter(tpl["text_vorlage"], beispieldaten_plain)
+    custom_html = (tpl.get("html_vorlage") or "").strip()
+
+    if custom_html:
+        html_body = _ersetze_platzhalter(custom_html, beispieldaten_html)
+    else:
+        html_body = f"""<!DOCTYPE html>
+<html lang="de">
+<head><meta charset="UTF-8"></head>
+<body style="font-family: Arial, Helvetica, sans-serif; color: #1f2937; line-height: 1.5; max-width: 620px; margin: 0 auto; padding: 20px;">
+    {_text_zu_html_absaetzen(plain_body)}
+</body>
+</html>
+"""
+
+    _sende_mail(empfaenger_email.strip(), subject, plain_body, html_body)
+    return subject
+
+
+def sende_kuendigungs_eingangsbestaetigung(daten: dict) -> bool:
     kind_name = f"{daten['mitglied_vorname']} {daten['mitglied_nachname']}".strip()
     eb_name = f"{daten['eb_vorname']} {daten['eb_nachname']}".strip()
     kuend_datum_de = daten["kuendigungsdatum_de"]
@@ -190,19 +339,9 @@ def sende_kuendigungs_eingangsbestaetigung(daten: dict) -> bool:
 </html>
 """
 
-    msg = EmailMessage()
-    msg["Subject"] = subject
-    msg["From"] = f"{sender_name} <{username}>"
-    msg["To"] = daten["eb_email"]
-    msg["Reply-To"] = username
-    msg.set_content(plain_body)
-    msg.add_alternative(html_body, subtype="html")
-
-    with smtplib.SMTP_SSL(smtp_server, smtp_port, timeout=20) as server:
-        server.login(username, password)
-        server.send_message(msg)
-
+    _sende_mail(daten["eb_email"], subject, plain_body, html_body)
     return True
+
 
 def hole_adressbuch_eintraege() -> list:
     with get_kompass() as conn:
@@ -223,30 +362,6 @@ def speichere_adressbuch_eintrag(bezeichnung: str, email: str) -> None:
 def loesche_adressbuch_eintrag(eintrag_id: int) -> None:
     with get_kompass() as conn:
         conn.execute("DELETE FROM mail_adressbuch WHERE id = ?;", (int(eintrag_id),))
-
-
-def _sende_mail(to_addr: str, subject: str, plain_body: str, html_body: str) -> None:
-    cfg = hole_mail_konfiguration()
-    smtp_server = cfg["smtp_server"]
-    smtp_port = cfg["smtp_port"]
-    username = cfg["smtp_username"]
-    password = cfg["smtp_password"]
-    sender_name = cfg["sender_name"]
-
-    if not password:
-        raise RuntimeError("Kein SMTP-Passwort hinterlegt (weder in der E-Mail-Verwaltung noch in .env).")
-
-    msg = EmailMessage()
-    msg["Subject"] = subject
-    msg["From"] = f"{sender_name} <{username}>"
-    msg["To"] = to_addr
-    msg["Reply-To"] = username
-    msg.set_content(plain_body)
-    msg.add_alternative(html_body, subtype="html")
-
-    with smtplib.SMTP_SSL(smtp_server, smtp_port, timeout=20) as server:
-        server.login(username, password)
-        server.send_message(msg)
 
 
 def sende_kuendigungsbestaetigung(daten: dict, freitext: str = "") -> bool:

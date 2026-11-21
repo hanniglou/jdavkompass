@@ -7,10 +7,171 @@
     <h1>Admin Panel – Email Verwaltung</h1>
     {% include "admin/_nav.html" %}
 
-    <div class="form-card" style="max-width: 820px; margin-bottom: 2rem;">
-        <h3 style="margin-top: 0;">SMTP-Server & Absender</h3>
+    {# 1. E-MAIL-VORLAGEN (AUSWAHL + NEUE ANLEGEN) #}
+    <div class="form-card" style="max-width: 860px; margin-bottom: 1.75rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 0.85rem;">
+            <div>
+                <h3 style="margin: 0;">1. E-Mail-Vorlagen</h3>
+                <p style="margin: 0.25rem 0 0 0; font-size: 0.9rem; color: #4b5563;">
+                    Wähle eine Vorlage zum Bearbeiten aus oder lege eine neue Vorlage an.
+                </p>
+            </div>
+            <button type="button"
+                    id="toggle-neue-vorlage-btn"
+                    onclick="toggleNeueVorlageForm()"
+                    style="padding: 0.42rem 0.85rem; border-radius: 7px; border: 1px solid #111827; background: #111827; color: #ffffff; font-size: 0.88rem; font-weight: 500; cursor: pointer;">
+                + Neue Vorlage anlegen
+            </button>
+        </div>
+
+        {% if templates %}
+            <div style="display: flex; flex-wrap: wrap; gap: 0.45rem; padding: 0.6rem; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px;">
+                {% for tpl in templates %}
+                    {% set ist_aktiv = gewaehltes_template and tpl.schluessel == gewaehltes_template.schluessel %}
+                    <a href="{{ url_for('admin.admin_email', tpl=tpl.schluessel) }}"
+                       style="display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.4rem 0.8rem; border-radius: 7px; text-decoration: none; font-size: 0.88rem; font-weight: {% if ist_aktiv %}600{% else %}500{% endif %}; {% if ist_aktiv %}background: #eef2f6; color: #111827; border: 1px solid #6b7280;{% else %}background: #ffffff; color: #374151; border: 1px solid #d1d5db;{% endif %}">
+                        <span>{{ tpl.bezeichnung }}</span>
+                        {% if tpl.schluessel in system_schluessel %}
+                            <span style="font-size: 0.72rem; padding: 0.08rem 0.38rem; border-radius: 4px; background: #e5e7eb; color: #374151;">System</span>
+                        {% endif %}
+                    </a>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p style="margin: 0; color: #6b7280; font-size: 0.9rem;">Noch keine Vorlagen vorhanden.</p>
+        {% endif %}
+
+        <div id="neue-vorlage-box"
+             style="display: none; margin-top: 1.1rem; padding-top: 1.1rem; border-top: 1px solid #e5e7eb;">
+            <h4 style="margin: 0 0 0.75rem 0; font-size: 1rem;">Neue E-Mail-Vorlage erstellen</h4>
+            <form method="POST">
+                <input type="hidden" name="form_typ" value="template_create">
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Bezeichnung der Vorlage *</label>
+                        <input type="text" name="bezeichnung" placeholder="z. B. Aufnahmebestätigung Jugendgruppe" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Betreff *</label>
+                        <input type="text" name="betreff" placeholder="z. B. Willkommen in der Jugendgruppe!" required>
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-top: 0.75rem;">
+                    <label>Klartext-Vorlage *</label>
+                    <textarea name="text_vorlage" rows="6" style="width: 100%; font-family: monospace;" placeholder="Hallo {{ '{{eb_name}}' }},&#10;&#10;..." required></textarea>
+                </div>
+
+                <div class="form-group" style="margin-top: 0.75rem;">
+                    <label>HTML-Vorlage (optional)</label>
+                    <textarea name="html_vorlage" rows="6" style="width: 100%; font-family: monospace;" placeholder="Optionales eigenes HTML"></textarea>
+                </div>
+
+                <div class="form-actions" style="margin-top: 0.85rem; display: flex; gap: 0.5rem;">
+                    <button type="submit" class="btn-submit">Vorlage anlegen</button>
+                    <button type="button"
+                            onclick="toggleNeueVorlageForm()"
+                            style="padding: 0.45rem 0.9rem; border-radius: 7px; border: 1px solid #d1d5db; background: #f9fafb; color: #374151; cursor: pointer;">
+                        Abbrechen
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {# 2. VORLAGEN-EDITOR (BETREFF, KLARTEXT, HTML) #}
+    <div class="form-card" style="max-width: 860px; margin-bottom: 1.75rem;">
+        <h3 style="margin-top: 0;">2. Vorlagen-Editor</h3>
+
+        {% if gewaehltes_template %}
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.85rem;">
+                <div style="font-size: 0.9rem; color: #374151;">
+                    Schlüssel: <code>{{ gewaehltes_template.schluessel }}</code>
+                </div>
+                {% if gewaehltes_template.aktualisiert_am %}
+                    <small style="color: #6b7280;">Zuletzt geändert: {{ gewaehltes_template.aktualisiert_am }}</small>
+                {% endif %}
+            </div>
+
+            <p style="font-size: 0.86rem; color: #4b5563; background: #f9fafb; padding: 0.55rem 0.75rem; border-radius: 6px; border: 1px solid #e5e7eb;">
+                Verfügbare Platzhalter:
+                <code>{{ '{{vorgangsnummer}}' }}</code>,
+                <code>{{ '{{kind_name}}' }}</code>,
+                <code>{{ '{{eb_name}}' }}</code>,
+                <code>{{ '{{eb_email}}' }}</code>,
+                <code>{{ '{{kuendigungsdatum}}' }}</code>,
+                <code>{{ '{{kuendigungsart}}' }}</code>,
+                <code>{{ '{{grund}}' }}</code>,
+                <code>{{ '{{erstellt_am}}' }}</code>,
+                <code>{{ '{{dav_hinweis}}' }}</code>,
+                <code>{{ '{{freitext}}' }}</code>
+            </p>
+
+            <form method="POST">
+                <input type="hidden" name="form_typ" value="template">
+                <input type="hidden" name="schluessel" value="{{ gewaehltes_template.schluessel }}">
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Bezeichnung *</label>
+                        <input type="text" name="bezeichnung" value="{{ gewaehltes_template.bezeichnung }}" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Betreff *</label>
+                        <input type="text" name="betreff" value="{{ gewaehltes_template.betreff }}" required>
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-top: 0.75rem;">
+                    <label>Klartext-Vorlage (Fallback für reine Text-Clients) *</label>
+                    <textarea name="text_vorlage" rows="10" style="width: 100%; font-family: monospace;" required>{{ gewaehltes_template.text_vorlage }}</textarea>
+                </div>
+
+                <div class="form-group" style="margin-top: 0.75rem;">
+                    <label>HTML-Vorlage (optional – wenn leer, wird HTML automatisch aus dem Klartext erzeugt)</label>
+                    <textarea id="editor-html-vorlage" name="html_vorlage" rows="12" style="width: 100%; font-family: monospace;" placeholder="<!DOCTYPE html><html>...</html>">{{ gewaehltes_template.html_vorlage or '' }}</textarea>
+                </div>
+
+                <div style="margin-top: 0.75rem;">
+                    <label style="display: block; font-size: 0.85rem; color: #4b5563; margin-bottom: 0.35rem;">
+                        Live-Vorschau der HTML-Vorlage
+                    </label>
+                    <iframe id="editor-html-preview"
+                            style="width: 100%; height: 250px; border: 1px solid #d1d5db; border-radius: 6px; background: #fff;">
+                    </iframe>
+                </div>
+
+                <div class="form-actions" style="margin-top: 0.9rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+                    <button type="submit" class="btn-submit">Vorlage speichern</button>
+
+                    {% if gewaehltes_template.schluessel not in system_schluessel %}
+                        <button type="submit"
+                                form="delete-template-form"
+                                onclick="return confirm('Soll die Vorlage ' + {{ gewaehltes_template.bezeichnung|tojson }} + ' wirklich geloescht werden?');"
+                                style="padding: 0.42rem 0.8rem; border-radius: 7px; border: 1px solid #fca5a5; background: #fef2f2; color: #991b1b; font-size: 0.86rem; cursor: pointer;">
+                            Vorlage löschen
+                        </button>
+                    {% endif %}
+                </div>
+            </form>
+
+            {% if gewaehltes_template.schluessel not in system_schluessel %}
+                <form id="delete-template-form" method="POST" style="display: none;">
+                    <input type="hidden" name="form_typ" value="template_delete">
+                    <input type="hidden" name="schluessel" value="{{ gewaehltes_template.schluessel }}">
+                </form>
+            {% endif %}
+        {% else %}
+            <p style="margin: 0; color: #6b7280;">Bitte lege zuerst eine E-Mail-Vorlage an.</p>
+        {% endif %}
+    </div>
+
+    {# 3. SMTP KONFIGURATION #}
+    <div class="form-card" style="max-width: 860px; margin-bottom: 1.75rem;">
+        <h3 style="margin-top: 0;">3. SMTP-Konfiguration</h3>
         <p style="font-size: 0.92rem; color: #4b5563;">
-            Hier legst du fest, über welches Postfach E-Mails (z. B. Eingangsbestätigungen für Kündigungen) versendet werden.
+            Hier legst du fest, über welches Postfach E-Mails versendet werden.
         </p>
 
         <form method="POST">
@@ -59,129 +220,121 @@
         </form>
     </div>
 
-    <div class="form-card" style="max-width: 820px; margin-bottom: 2rem;">
-        <h3 style="margin-top: 0;">Mini-Adressbuch (Interne Kündigungs-Benachrichtigungen)</h3>
+    {# 4. TEST MAILS VERSENDEN + ADRESSBUCH #}
+    <div class="form-card" style="max-width: 860px;">
+        <h3 style="margin-top: 0;">4. Test-Mails versenden</h3>
         <p style="font-size: 0.92rem; color: #4b5563;">
-            Hier hinterlegte Adressen stehen beim Bestätigen einer Kündigung unter „Mitglieder → Kündigungen bearbeiten“ als Checkboxen zur Auswahl.
+            Versende eine Test-Mail mit realistischen Beispieldaten an einen Eintrag aus dem Adressbuch, um SMTP-Verbindung und Layout zu prüfen.
         </p>
 
-        <form method="POST" style="margin-bottom: 1.25rem;">
-            <input type="hidden" name="form_typ" value="adressbuch_add">
+        <form method="POST" style="margin-bottom: 1.5rem;">
+            <input type="hidden" name="form_typ" value="test_mail">
+
             <div class="form-grid">
                 <div class="form-group">
-                    <label for="ab_bezeichnung">Bezeichnung *</label>
-                    <input id="ab_bezeichnung" type="text" name="bezeichnung" placeholder="z. B. Jugendleitung / Kasse" required>
+                    <label for="test_schluessel">Vorlage auswählen *</label>
+                    <select id="test_schluessel" name="test_schluessel" required>
+                        {% for tpl in templates %}
+                            <option value="{{ tpl.schluessel }}"
+                                    {% if gewaehltes_template and tpl.schluessel == gewaehltes_template.schluessel %}selected{% endif %}>
+                                {{ tpl.bezeichnung }}
+                            </option>
+                        {% endfor %}
+                    </select>
                 </div>
 
                 <div class="form-group">
-                    <label for="ab_email">E-Mail-Adresse *</label>
-                    <input id="ab_email" type="email" name="email" placeholder="name@verein.de" required>
+                    <label for="empfaenger_email">Empfänger:in aus Adressbuch *</label>
+                    <select id="empfaenger_email" name="empfaenger_email" required {% if not adressbuch %}disabled{% endif %}>
+                        {% if adressbuch %}
+                            {% for eintrag in adressbuch %}
+                                <option value="{{ eintrag.email }}">{{ eintrag.bezeichnung }} ({{ eintrag.email }})</option>
+                            {% endfor %}
+                        {% else %}
+                            <option value="">Bitte zuerst unten eine Adresse anlegen</option>
+                        {% endif %}
+                    </select>
                 </div>
             </div>
 
-            <div class="form-actions" style="margin-top: 0.85rem;">
-                <button type="submit" class="btn-submit">Eintrag hinzufügen</button>
+            <div class="form-actions" style="margin-top: 0.9rem;">
+                <button type="submit" class="btn-submit" {% if not adressbuch or not templates %}disabled{% endif %}>
+                    Test-Mail jetzt senden
+                </button>
             </div>
         </form>
 
-        {% if adressbuch %}
-            <div style="border-top: 1px solid #e5e7eb; padding-top: 1rem; display: flex; flex-direction: column; gap: 0.5rem;">
-                {% for eintrag in adressbuch %}
-                    <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; padding: 0.55rem 0.75rem; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px;">
-                        <div>
-                            <strong>{{ eintrag.bezeichnung }}</strong>
-                            <span style="color: #4b5563; margin-left: 0.4rem;">({{ eintrag.email }})</span>
-                        </div>
+        <div style="border-top: 1px solid #e5e7eb; padding-top: 1.25rem;">
+            <h4 style="margin: 0 0 0.35rem 0; font-size: 0.98rem;">Adressbuch verwalten</h4>
+            <p style="margin: 0 0 0.85rem 0; font-size: 0.86rem; color: #4b5563;">
+                Diese Adressen stehen sowohl hier für Test-Mails als auch für interne Kündigungs-Benachrichtigungen zur Verfügung.
+            </p>
 
-                        <form method="POST" style="margin: 0;">
-                            <input type="hidden" name="form_typ" value="adressbuch_delete">
-                            <input type="hidden" name="eintrag_id" value="{{ eintrag.id }}">
-                            <button type="submit" style="padding: 0.3rem 0.65rem; border-radius: 6px; border: 1px solid #fca5a5; background: #fef2f2; color: #991b1b; font-size: 0.85rem; cursor: pointer;">
-                                Löschen
-                            </button>
-                        </form>
+            <form method="POST" style="margin-bottom: 1rem;">
+                <input type="hidden" name="form_typ" value="adressbuch_add">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="ab_bezeichnung">Bezeichnung *</label>
+                        <input id="ab_bezeichnung" type="text" name="bezeichnung" placeholder="z. B. Jugendleitung / Testpostfach" required>
                     </div>
-                {% endfor %}
-            </div>
-        {% else %}
-            <p style="margin: 0; font-size: 0.9rem; color: #6b7280;">Noch keine Einträge im Mini-Adressbuch vorhanden.</p>
-        {% endif %}
-    </div>
 
-    <div class="form-card" style="max-width: 820px;">
-        <h3 style="margin-top: 0;">E-Mail-Vorlagen</h3>
-        <p style="font-size: 0.92rem; color: #4b5563;">
-            Verfügbare Platzhalter:
-            <code>{{ '{{vorgangsnummer}}' }}</code>,
-            <code>{{ '{{kind_name}}' }}</code>,
-            <code>{{ '{{eb_name}}' }}</code>,
-            <code>{{ '{{eb_email}}' }}</code>,
-            <code>{{ '{{kuendigungsdatum}}' }}</code>,
-            <code>{{ '{{kuendigungsart}}' }}</code>,
-            <code>{{ '{{grund}}' }}</code>,
-            <code>{{ '{{erstellt_am}}' }}</code>,
-            <code>{{ '{{dav_hinweis}}' }}</code>
-        </p>
+                    <div class="form-group">
+                        <label for="ab_email">E-Mail-Adresse *</label>
+                        <input id="ab_email" type="email" name="email" placeholder="name@verein.de" required>
+                    </div>
+                </div>
 
-        {% for tpl in templates %}
-        <form method="POST" style="border-top: 1px solid #e5e7eb; padding-top: 1.25rem; margin-top: 1.25rem;">
-            <input type="hidden" name="form_typ" value="template">
-            <input type="hidden" name="schluessel" value="{{ tpl.schluessel }}">
+                <div class="form-actions" style="margin-top: 0.75rem;">
+                    <button type="submit" class="btn-submit">Zum Adressbuch hinzufügen</button>
+                </div>
+            </form>
 
-            <div style="display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 0.5rem;">
-                <h4 style="margin: 0 0 0.75rem 0;">{{ tpl.bezeichnung }}</h4>
-                {% if tpl.aktualisiert_am %}
-                <small style="color: #6b7280;">Zuletzt geändert: {{ tpl.aktualisiert_am }}</small>
-                {% endif %}
-            </div>
+            {% if adressbuch %}
+                <div style="display: flex; flex-direction: column; gap: 0.45rem;">
+                    {% for eintrag in adressbuch %}
+                        <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; padding: 0.5rem 0.75rem; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px;">
+                            <div>
+                                <strong>{{ eintrag.bezeichnung }}</strong>
+                                <span style="color: #4b5563; margin-left: 0.4rem;">({{ eintrag.email }})</span>
+                            </div>
 
-            <div class="form-group">
-                <label>Betreff *</label>
-                <input type="text" name="betreff" value="{{ tpl.betreff }}" required>
-            </div>
-
-            <div class="form-group" style="margin-top: 0.75rem;">
-                <label>Klartext-Vorlage (Fallback für reine Text-Clients) *</label>
-                <textarea name="text_vorlage" rows="10" style="width: 100%; font-family: monospace;" required>{{ tpl.text_vorlage }}</textarea>
-            </div>
-
-            <div class="form-group" style="margin-top: 0.75rem;">
-                <label>HTML-Vorlage (optional – wenn leer, wird HTML automatisch aus dem Klartext erzeugt)</label>
-                <textarea name="html_vorlage" rows="12" style="width: 100%; font-family: monospace;" placeholder="<!DOCTYPE html><html>...</html>">{{ tpl.html_vorlage or '' }}</textarea>
-            </div>
-
-            <div style="margin-top: 0.75rem;">
-                <label style="display: block; font-size: 0.85rem; color: #4b5563; margin-bottom: 0.35rem;">
-                    Live-Vorschau der HTML-Vorlage
-                </label>
-                <iframe class="html-preview-frame"
-                        style="width: 100%; height: 260px; border: 1px solid #d1d5db; border-radius: 6px; background: #fff;">
-                </iframe>
-            </div>
-
-            <div class="form-actions" style="margin-top: 0.75rem;">
-                <button type="submit" class="btn-submit">Vorlage speichern</button>
-            </div>
-        </form>
-        {% endfor %}
+                            <form method="POST" style="margin: 0;">
+                                <input type="hidden" name="form_typ" value="adressbuch_delete">
+                                <input type="hidden" name="eintrag_id" value="{{ eintrag.id }}">
+                                <button type="submit" style="padding: 0.28rem 0.6rem; border-radius: 6px; border: 1px solid #fca5a5; background: #fef2f2; color: #991b1b; font-size: 0.84rem; cursor: pointer;">
+                                    Löschen
+                                </button>
+                            </form>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p style="margin: 0; font-size: 0.88rem; color: #6b7280;">Noch keine Einträge im Adressbuch vorhanden.</p>
+            {% endif %}
+        </div>
     </div>
 </section>
 
 <script>
+function toggleNeueVorlageForm() {
+    const box = document.getElementById("neue-vorlage-box");
+    if (!box) return;
+    box.style.display = box.style.display === "none" ? "block" : "none";
+}
+
 document.addEventListener("DOMContentLoaded", function () {
-    document.querySelectorAll("textarea[name='html_vorlage']").forEach((textarea) => {
-        const frame = textarea.closest("form")?.querySelector(".html-preview-frame");
-        if (!frame) return;
+    const textarea = document.getElementById("editor-html-vorlage");
+    const frame = document.getElementById("editor-html-preview");
+    if (!textarea || !frame) return;
 
-        const updatePreview = () => {
-            frame.srcdoc = textarea.value.trim()
-                ? textarea.value
-                : "<p style='font-family: sans-serif; color: #6b7280; padding: 12px;'>Noch keine HTML-Vorlage hinterlegt (es wird automatisch HTML aus dem Klartext erzeugt).</p>";
-        };
+    const updatePreview = () => {
+        frame.srcdoc = textarea.value.trim()
+            ? textarea.value
+            : "<p style='font-family: sans-serif; color: #6b7280; padding: 12px;'>Noch keine HTML-Vorlage hinterlegt (es wird automatisch HTML aus dem Klartext erzeugt).</p>";
+    };
 
-        textarea.addEventListener("input", updatePreview);
-        updatePreview();
-    });
+    textarea.addEventListener("input", updatePreview);
+    updatePreview();
 });
 </script>
 {% endblock %}
