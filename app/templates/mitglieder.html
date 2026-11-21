@@ -26,8 +26,41 @@
         </a>
     </div>
 
+    <div class="table-container mitglieder-container antraege-banner" style="margin-bottom: 30px; display: flex; flex-direction: column; align-items: flex-start; gap: 12px;">
+        <div>
+            <h3 style="margin: 0 0 5px 0;">Offene Kündigungen</h3>
+            {% if kuendigungen_ausstehend_count == 1 %}
+                <p style="margin: 0;">
+                    Es liegt aktuell <strong>1</strong> Kündigung zur Bearbeitung vor.
+                </p>
+            {% elif kuendigungen_ausstehend_count > 1 %}
+                <p style="margin: 0;">
+                    Es liegen aktuell <strong>{{ kuendigungen_ausstehend_count }}</strong> Kündigungen zur Bearbeitung vor.
+                </p>
+            {% else %}
+                <p style="margin: 0;">Aktuell liegen keine offenen Kündigungen zur Bearbeitung vor.</p>
+            {% endif %}
+        </div>
+        <a href="{{ url_for('mitglieder.kuendigungen_verwalten') }}"
+        class="btn-freigabe"
+        style="background-color: #dc2626; border-color: #dc2626; color: #ffffff;">
+            Zu den Kündigungen
+        </a>
+    </div>
+
     <div class="table-container">
-        <h3>Alle Mitglieder</h3>
+        <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 16px;">
+            <h3 style="margin: 0;">Alle Mitglieder</h3>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <label for="mitglied-suche" style="font-weight: 600;">Suche:</label>
+                <input
+                    type="search"
+                    id="mitglied-suche"
+                    placeholder="Name, Gruppe, Nummer, Ort..."
+                    style="padding: 0.42rem 0.7rem; border-radius: 6px; border: 1px solid #cbd5e1; min-width: 240px;"
+                >
+            </div>
+        </div>
 
         {% if mitglieder_daten %}
         <table class="table">
@@ -39,13 +72,15 @@
                     <th>Geburtsdatum</th>
                     <th>Mitgliedsnummer</th>
                     <th>Adresse</th>
-                    <th>Erziehungsberechtigte</th>
+                    <th>Erziehungsberechtigte:r</th>
                     <th>Aktion</th>
                 </tr>
             </thead>
             <tbody>
                 {% for mitglied in mitglieder_daten %}
-                <tr>
+                <tr class="mitglied-row"
+                    data-mitglied-id="{{ mitglied.id }}"
+                    {% if mitglied.kuendigung_datum_de %}style="background-color: #fffbeb; border-left: 4px solid #f59e0b;"{% endif %}>
                     <td>{{ mitglied.vorname }}</td>
                     <td>{{ mitglied.nachname }}</td>
                     <td>
@@ -62,7 +97,84 @@
                     </td>
                     <td>{{mitglied.strasse}} {{mitglied.hausnummer}} {{mitglied.plz}} {{mitglied.ort}}</td>
                     <td>
-                        {{mitglied.erziehungsberechtigte.vorname}} {{mitglied.erziehungsberechtigte.nachname}} {{mitglied.erziehungsberechtigte.email}} {{mitglied.erziehungsberechtigte.telefon}}
+                        {% if mitglied.erziehungsberechtigte %}
+                            {{mitglied.erziehungsberechtigte.vorname}} {{mitglied.erziehungsberechtigte.nachname}} {{mitglied.erziehungsberechtigte.email}} {{mitglied.erziehungsberechtigte.telefon}}
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{{ url_for('mitglieder.mitglied_bearbeiten', mitglied_id=mitglied.id) }}" class="btn btn-primary">
+                            Bearbeiten
+                        </a>
+                    </td>
+                </tr>
+                {% if mitglied.kuendigung_datum_de %}
+                <tr class="kuendigung-hinweis-row"
+                    data-for-mitglied="{{ mitglied.id }}"
+                    style="background-color: #fffbeb; border-left: 4px solid #f59e0b;">
+                    <td colspan="8" style="border-top: none; color: #92400e; font-weight: 600; padding: 0.25rem 0.85rem 0.65rem 0.85rem;">
+                        {{ mitglied.vorname }} {{ mitglied.nachname }} ({{ mitglied.geburtsdatum[8:10] }}.{{ mitglied.geburtsdatum[5:7] }}.{{ mitglied.geburtsdatum[0:4] }}) wurde gekündigt zum {{ mitglied.kuendigung_datum_de }}
+                    </td>
+                </tr>
+                {% endif %}
+                {% endfor %}
+            </tbody>
+        </table>
+        <p id="keine-suchtreffer" style="display: none; margin-top: 12px; color: #6b7280;">
+            Keine passenden Mitglieder für den Suchbegriff gefunden.
+        </p>
+        {% else %}
+        <div class="alert alert-info">
+            Keine Mitglieder vorhanden.
+        </div>
+        {% endif %}
+    </div>
+
+    <details class="table-container" style="margin-top: 28px;">
+        <summary style="cursor: pointer; font-weight: 700; font-size: 1.05rem; color: #374151; list-style: revert;">
+            Archiv gekündigter Mitglieder ({{ mitglieder_archiv_daten|length }})
+        </summary>
+        <p style="margin: 10px 0 14px 0; color: #4b5563; font-size: 0.92rem;">
+            Hier erscheinen gekündigte Kinder, deren Kündigungsquartal sowie das darauffolgende Quartal abgelaufen sind.
+        </p>
+
+        {% if mitglieder_archiv_daten %}
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Vorname</th>
+                    <th>Nachname</th>
+                    <th>Gruppen</th>
+                    <th>Geburtsdatum</th>
+                    <th>Kündigungsdatum</th>
+                    <th>Mitgliedsnummer</th>
+                    <th>Adresse</th>
+                    <th>Erziehungsberechtigte:r</th>
+                    <th>Aktion</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for mitglied in mitglieder_archiv_daten %}
+                <tr class="mitglied-row" data-mitglied-id="{{ mitglied.id }}" style="color: #4b5563;">
+                    <td>{{ mitglied.vorname }}</td>
+                    <td>{{ mitglied.nachname }}</td>
+                    <td>
+                        {% for gruppe in mitglied.gruppen %}
+                            {{ gruppe.name }}{% if not loop.last %}, {% endif %}
+                        {% endfor %}
+                    </td>
+                    <td>{{ mitglied.geburtsdatum[8:10] }}.{{ mitglied.geburtsdatum[5:7] }}.{{ mitglied.geburtsdatum[0:4] }}</td>
+                    <td>{{ mitglied.kuendigung_datum_de or "-" }}</td>
+                    <td>{% if mitglied.mitgliedsnummer %}
+                        {{mitglied.mitgliedsnummer}}
+                        {% else %}
+                        Mitgliedsnummer fehlt
+                        {% endif %}
+                    </td>
+                    <td>{{mitglied.strasse}} {{mitglied.hausnummer}} {{mitglied.plz}} {{mitglied.ort}}</td>
+                    <td>
+                        {% if mitglied.erziehungsberechtigte %}
+                            {{mitglied.erziehungsberechtigte.vorname}} {{mitglied.erziehungsberechtigte.nachname}} {{mitglied.erziehungsberechtigte.email}} {{mitglied.erziehungsberechtigte.telefon}}
+                        {% endif %}
                     </td>
                     <td>
                         <a href="{{ url_for('mitglieder.mitglied_bearbeiten', mitglied_id=mitglied.id) }}" class="btn btn-primary">
@@ -74,17 +186,54 @@
             </tbody>
         </table>
         {% else %}
-        <div class="alert alert-info">
-            Keine Mitglieder vorhanden.
+        <div class="alert alert-info" style="margin-bottom: 0;">
+            Aktuell befinden sich keine gekündigten Mitglieder im Archiv.
         </div>
         {% endif %}
-    </div>
+    </details>
 </section>
 
 <script>
 document.addEventListener("DOMContentLoaded", function () {
+    const searchInput = document.getElementById("mitglied-suche");
+    const noResultsMsg = document.getElementById("keine-suchtreffer");
     const tables = document.querySelectorAll(".table");
     if (!tables.length) return;
+
+    function applyFilter() {
+        if (!searchInput) return;
+        const term = searchInput.value.trim().toLowerCase();
+        let visibleMainRows = 0;
+
+        tables.forEach((table, idx) => {
+            const tbody = table.querySelector("tbody");
+            if (!tbody) return;
+            const memberRows = tbody.querySelectorAll("tr.mitglied-row");
+
+            memberRows.forEach(row => {
+                const mid = row.dataset.mitgliedId;
+                const hintRow = mid ? tbody.querySelector(`tr.kuendigung-hinweis-row[data-for-mitglied="${mid}"]`) : null;
+                const combinedText = (row.textContent + " " + (hintRow ? hintRow.textContent : "")).toLowerCase();
+                const matches = !term || combinedText.includes(term);
+
+                row.style.display = matches ? "" : "none";
+                if (hintRow) {
+                    hintRow.style.display = matches ? "" : "none";
+                }
+                if (idx === 0 && matches) {
+                    visibleMainRows += 1;
+                }
+            });
+        });
+
+        if (noResultsMsg) {
+            noResultsMsg.style.display = (term && visibleMainRows === 0) ? "block" : "none";
+        }
+    }
+
+    if (searchInput) {
+        searchInput.addEventListener("input", applyFilter);
+    }
 
     tables.forEach(table => {
         const headers = table.querySelectorAll("thead th");
@@ -134,9 +283,9 @@ document.addEventListener("DOMContentLoaded", function () {
                 th.classList.add(nextOrder === "asc" ? "sorted-asc" : "sorted-desc");
                 arrow.textContent = nextOrder === "asc" ? " ↓" : " ↑";
 
-                const rows = Array.from(tbody.querySelectorAll("tr"));
+                const memberRows = Array.from(tbody.querySelectorAll("tr.mitglied-row"));
 
-                rows.sort((rowA, rowB) => {
+                memberRows.sort((rowA, rowB) => {
                     const cellA = rowA.children[colIndex];
                     const cellB = rowB.children[colIndex];
                     if (!cellA || !cellB) return 0;
@@ -160,7 +309,15 @@ document.addEventListener("DOMContentLoaded", function () {
                     return nextOrder === "asc" ? cmp : -cmp;
                 });
 
-                rows.forEach(row => tbody.appendChild(row));
+                memberRows.forEach(row => {
+                    const mid = row.dataset.mitgliedId;
+                    const hintRow = mid ? tbody.querySelector(`tr.kuendigung-hinweis-row[data-for-mitglied="${mid}"]`) : null;
+                    tbody.appendChild(row);
+                    if (hintRow) {
+                        tbody.appendChild(hintRow);
+                    }
+                });
+                applyFilter();
             });
         });
     });

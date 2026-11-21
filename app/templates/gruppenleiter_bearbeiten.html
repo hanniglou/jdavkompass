@@ -1,8 +1,8 @@
 {% extends "base_intern.html" %}
-{% block title %}Gruppenleiter bearbeiten - JDAV Hildesheim{% endblock %}
+{% block title %}Jugendleiter:in bearbeiten - JDAV Hildesheim{% endblock %}
 {% block content %}
 <section class="page-section">
-    <h2>Gruppenleiter bearbeiten</h2>
+    <h2>Jugendleiter:in bearbeiten</h2>
 
     <div class="form-card flex">
         <form method="POST">
@@ -59,18 +59,18 @@
             </div>
 
             <div class="form-section">
-                <h3>Rollen</h3>
+                <h3>Rollen & Account-Verknüpfung</h3>
 
                 <div class="form-grid">
 
                     <div class="form-group">
                         <label>Gruppenrolle</label>
                         <select name="gruppenrolle">
-                            <option value="Jugendleiter" {% if leiter.gruppenrolle=='Jugendleiter' %}selected{% endif %}>
-                                Jugendleiter
+                            <option value="Jugendleiter" {% if leiter.gruppenrolle in ['Jugendleiter', 'Jugendleiter:in'] %}selected{% endif %}>
+                                Jugendleiter:in
                             </option>
-                            <option value="Helfer" {% if leiter.gruppenrolle=='Helfer' %}selected{% endif %}>
-                                Helfer
+                            <option value="Helfer" {% if leiter.gruppenrolle in ['Helfer', 'Helfer:in'] %}selected{% endif %}>
+                                Helfer:in
                             </option>
                         </select>
                     </div>
@@ -82,9 +82,22 @@
                             <option value="Jugendausschuss" {% if leiter.vereinsrolle=='Jugendausschuss' %}selected{% endif %}>
                                 Jugendausschuss
                             </option>
-                            <option value="Jugendreferent" {% if leiter.vereinsrolle=='Jugendreferent' %}selected{% endif %}>
-                                Jugendreferent
+                            <option value="Jugendreferent" {% if leiter.vereinsrolle in ['Jugendreferent', 'Jugendreferent:in'] %}selected{% endif %}>
+                                Jugendreferent:in
                             </option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Verknüpfter Account</label>
+                        <select name="account_id">
+                            <option value="">Kein Account verknüpft</option>
+                            {% for acc in accounts %}
+                                {% set label = acc.anzeigename or acc.uname %}
+                                <option value="{{ acc.id }}" {% if leiter.account_id == acc.id %}selected{% endif %}>
+                                    {{ label }} ({{ acc.uname }})
+                                </option>
+                            {% endfor %}
                         </select>
                     </div>
 

@@ -8,15 +8,31 @@
     <p>{{ gruppe.wochentag }} {{ gruppe.startzeit }} - {{ gruppe.endzeit }}</p>
 
     <div class="table-container anwesenheitsliste">
-        <div class="anwesenheit-header">
-            <h3>Anwesenheitsliste</h3>
-            <div class="filter-dropdown-wrapper">
-                <label for="zeitraum-select">Zeitraum:</label>
-                <select id="zeitraum-select" class="filter-select" onchange="window.location.href='?filter=' + this.value">
-                    <option value="quartal" {% if zeitraum == 'quartal' or not zeitraum %}selected{% endif %}>Aktuelles Quartal</option>
-                    <option value="6monate" {% if zeitraum == '6monate' %}selected{% endif %}>Letzte 6 Monate</option>
-                    <option value="alle" {% if zeitraum == 'alle' %}selected{% endif %}>Alle Termine</option>
-                </select>
+        <div class="anwesenheit-header" style="align-items: center; gap: 1rem; flex-wrap: wrap;">
+            <h3 style="margin: 0;">Anwesenheitsliste</h3>
+
+            {% set pill_base = "display: inline-flex; align-items: center; padding: 0.35rem 0.75rem; border-radius: 7px; text-decoration: none; font-size: 0.88rem; font-weight: 500; transition: all 0.15s ease;" %}
+            {% set pill_active = "background-color: #eef2f6; color: #111827; border: 1px solid #9ca3af; box-shadow: inset 0 1px 2px rgba(0,0,0,0.04);" %}
+            {% set pill_inactive = "background-color: #f9fafb; color: #4b5563; border: 1px solid #d1d5db;" %}
+
+            <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; padding: 0.45rem 0.75rem; background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px;">
+                <span style="color: #4b5563; font-size: 0.88rem; font-weight: 600; margin-right: 0.2rem;">
+                    Zeitraum:
+                </span>
+
+                {% set zeitraum_optionen = [
+                    ('quartal', 'Aktuelles Quartal'),
+                    ('6monate', 'Letzte 6 Monate'),
+                    ('alle', 'Alle Termine')
+                ] %}
+
+                {% for wert, label in zeitraum_optionen %}
+                    {% set ist_aktiv = (zeitraum == wert) or (wert == 'quartal' and not zeitraum) %}
+                    <a href="{{ url_for('gruppe.gruppe', gruppe_id=gruppe.id, filter=wert) }}"
+                       style="{{ pill_base }} {% if ist_aktiv %}{{ pill_active }}{% else %}{{ pill_inactive }}{% endif %}">
+                        {{ label }}
+                    </a>
+                {% endfor %}
             </div>
         </div>
 
@@ -26,21 +42,48 @@
                     <tr>
                         <th>Name</th>
                         {% for datum in alle_daten | reverse %}
-                        <th class="historie {% if datum == today %}today-col{% else %}other-col{% endif %}" style="width: 125px; min-width: 125px; max-width: 125px;">
-                            {% if datum == today %}
-                                Heute
-                            {% else %}
-                                {{ datum[8:10] }}.{{ datum[5:7] }}.{{ datum[0:4] }}
-                            {% endif %}
+                        {% set datum_de = daten_formatiert.get(datum, datum) %}
+                        <th class="historie {% if datum == today %}today-col{% else %}other-col{% endif %}">
+                            <div style="display: inline-flex; align-items: center; gap: 0.35rem;">
+                                <span>{{ datum_de }}</span>
+                                {% if current_user.role >= 2 %}
+                                <button type="button"
+                                        title="Termin {{ datum_de }} löschen"
+                                        onclick="oeffneTerminLoeschenModal('{{ datum }}', '{{ datum_de }}')"
+                                        style="border: none; background: transparent; color: #9ca3af; cursor: pointer; font-weight: 700; font-size: 0.95rem; line-height: 1; padding: 0 0.15rem;"
+                                        onmouseover="this.style.color='#dc2626'"
+                                        onmouseout="this.style.color='#9ca3af'">
+                                    &times;
+                                </button>
+                                {% endif %}
+                            </div>
                         </th>
                         {% endfor %}
                         <th>Notfallkontakt</th>
                     </tr>
                 </thead>
                 <tbody>
+                    {% set gesamt_spalten = alle_daten|length + 2 %}
+
+                    <tr class="gruppen-zwischenzeile">
+                        <td colspan="{{ gesamt_spalten }}"
+                            style="background-color: #f3f4f6; color: #374151; font-weight: 700; font-size: 0.9rem; padding: 0.55rem 0.75rem; border-top: 2px solid #d1d5db; border-bottom: 1px solid #e5e7eb;">
+                            Mitglieder
+                        </td>
+                    </tr>
+
                     {% for mitglied in mitglieder %}
                     <tr>
+                        {% if mitglied.kuendigung_datum_de %}
+                        <td style="background-color: #fffbeb; border-left: 4px solid #f59e0b; color: #92400e;">
+                            <div style="font-weight: 600;">{{ mitglied.vorname }} {{ mitglied.nachname }}</div>
+                            <div style="font-size: 0.78rem; line-height: 1.25; margin-top: 2px; opacity: 0.9;">
+                                gekündigt zum<br>{{ mitglied.kuendigung_datum_de }}
+                            </div>
+                        </td>
+                        {% else %}
                         <td>{{ mitglied.vorname }} {{ mitglied.nachname }}</td>
+                        {% endif %}
 
                         {% for datum in alle_daten | reverse %}
                         {% set status = anwesenheit.get(mitglied.id, {}).get(datum, 0) %}
@@ -65,6 +108,13 @@
                     </tr>
                     {% endfor %}
 
+                    <tr class="gruppen-zwischenzeile">
+                        <td colspan="{{ gesamt_spalten }}"
+                            style="background-color: #f3f4f6; color: #374151; font-weight: 700; font-size: 0.9rem; padding: 0.75rem 0.75rem 0.55rem 0.75rem; border-top: 2px solid #d1d5db; border-bottom: 1px solid #e5e7eb;">
+                            Jugendleitende
+                        </td>
+                    </tr>
+
                     {% for gruppenleiter in gruppenleiter %}
                     <tr class="gruppenleiter">
                         <td>{{ gruppenleiter.vorname }} {{ gruppenleiter.nachname }}</td>
@@ -76,13 +126,7 @@
                         </td>
                         {% endfor %}
 
-                        <td>
-                            {% if gruppenleiter.telefon %}
-                            {{ gruppenleiter.telefon }}
-                            {% else %}
-                            kein Notfallkontakt!
-                            {% endif %}
-                        </td>
+                        <td>-</td>
                     </tr>
                     {% endfor %}
 
@@ -114,29 +158,483 @@
         </form>
 
         {% if current_user.role >= 2 %}
-        <form id="download-form"
-              action="{{ url_for('gruppe.download_attendance', gruppe_id=gruppe.id) }}"
-              method="GET">
+        <form id="nachtrag-form"
+              method="post"
+              action="{{ url_for('gruppe.gruppe', gruppe_id=gruppe.id, filter=zeitraum) }}">
+            <input type="hidden" name="action" value="termin_nachtragen">
         </form>
         {% endif %}
 
-        <div class="btn-wrapper-anwesenheit">
+        <div class="btn-wrapper-anwesenheit" style="display: flex; flex-wrap: wrap; align-items: center; gap: 0.65rem; margin-top: 1rem;">
             <button type="submit" class="btn-submit" form="attendance-form">
                 Speichern
             </button>
 
             {% if current_user.role >= 2 %}
-            <button type="submit" class="btn-submit" form="download-form">
-                Download Anwesenheitsliste
-            </button>
+            <div style="position: relative; display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; padding: 0.35rem 0.6rem; background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px;">
+                <label for="nachtrag-datum" style="font-size: 0.88rem; color: #374151; margin: 0;">
+                    Termin nachtragen:
+                </label>
+                <input type="text"
+                       id="nachtrag-datum"
+                       readonly
+                       placeholder="TT.MM.JJJJ"
+                       data-iso-datum=""
+                       data-max-datum="{{ today }}"
+                       data-wochentag="{{ gruppe.wochentag or '' }}"
+                       onclick="oeffneMontagsKalender()"
+                       style="width: 105px; padding: 0.28rem 0.45rem; border-radius: 6px; border: 1px solid #d1d5db; font-size: 0.88rem; background: #fff; cursor: pointer;">
+                <input type="hidden"
+                       id="nachtrag-datum-iso"
+                       name="nachtrag_datum"
+                       form="nachtrag-form">
+                <button type="button"
+                        class="btn-submit"
+                        onclick="handleTerminHinzufuegen()"
+                        style="padding: 0.35rem 0.75rem; font-size: 0.88rem;">
+                    Hinzufügen
+                </button>
+
+                <div id="montags-kalender-popup"
+                     style="display: none; position: fixed; z-index: 9998; background: #ffffff; border: 1px solid #d1d5db; border-radius: 10px; padding: 0.75rem; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.14); width: 266px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                        <button type="button"
+                                title="Vorheriger Monat"
+                                onclick="wechsleKalenderMonat(-1)"
+                                style="border: 1px solid #d1d5db; background: #f9fafb; color: #111827; border-radius: 6px; padding: 0.15rem 0.5rem; font-size: 0.9rem; line-height: 1.2; cursor: pointer;">
+                            &larr;
+                        </button>
+                        <strong id="kalender-monat-titel" style="font-size: 0.9rem; color: #111827;"></strong>
+                        <button type="button"
+                                title="Nächster Monat"
+                                onclick="wechsleKalenderMonat(1)"
+                                style="border: 1px solid #d1d5db; background: #f9fafb; color: #111827; border-radius: 6px; padding: 0.15rem 0.5rem; font-size: 0.9rem; line-height: 1.2; cursor: pointer;">
+                            &rarr;
+                        </button>
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.2rem; text-align: center; font-size: 0.75rem; font-weight: 600; color: #6b7280; margin-bottom: 0.3rem;">
+                        <span>Mo</span><span>Di</span><span>Mi</span><span>Do</span><span>Fr</span><span>Sa</span><span>So</span>
+                    </div>
+                    <div id="kalender-tage-grid"
+                         style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.2rem; text-align: center;"></div>
+                </div>
+            </div>
             {% endif %}
 
             {% if current_user.role >= 2 %}
-            <a href="{{ url_for('gruppe.gruppe_bearbeiten', gruppe_id=gruppe.id) }}" class="btn-submit" style="text-decoration: none; display: inline-flex; align-items: center;">
+            <button type="button"
+                    class="btn-submit"
+                    style="background-color: #d97706; border-color: #d97706; color: #ffffff;"
+                    onclick="window.location.href='{{ url_for('gruppe.gruppe_bearbeiten', gruppe_id=gruppe.id) }}'">
                 Gruppe bearbeiten
-            </a>
+            </button>
             {% endif %}
         </div>
     </div>
 </section>
+
+{% if current_user.role >= 2 %}
+<form id="termin-loeschen-form"
+      method="post"
+      action="{{ url_for('gruppe.gruppe', gruppe_id=gruppe.id, filter=zeitraum) }}">
+    <input type="hidden" name="action" value="termin_loeschen">
+    <input type="hidden" name="datum" id="termin-loeschen-datum" value="">
+</form>
+
+<div id="termin-loeschen-modal"
+     onclick="if (event.target === this) schliesseTerminLoeschenModal()"
+     style="display: none; position: fixed; inset: 0; background: rgba(17, 24, 39, 0.45); z-index: 9999; align-items: center; justify-content: center; padding: 1rem;">
+    <div role="dialog"
+         aria-modal="true"
+         aria-labelledby="termin-loeschen-titel"
+         style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; max-width: 440px; width: 100%; padding: 1.25rem; box-shadow: 0 12px 30px rgba(0, 0, 0, 0.16);">
+        <h4 id="termin-loeschen-titel" style="margin: 0 0 0.5rem 0; font-size: 1.05rem; color: #111827;">
+            Termin löschen?
+        </h4>
+        <p id="termin-loeschen-text" style="margin: 0 0 0.9rem 0; font-size: 0.92rem; color: #4b5563; line-height: 1.45;"></p>
+
+        <div style="margin-bottom: 1.15rem;">
+            <label for="termin-loeschen-bestaetigung"
+                   style="display: block; font-size: 0.85rem; color: #374151; margin-bottom: 0.35rem;">
+                Zur Bestätigung bitte <strong>kletterhalle</strong> eingeben:
+            </label>
+            <input type="text"
+                   id="termin-loeschen-bestaetigung"
+                   autocomplete="off"
+                   placeholder="kletterhalle"
+                   oninput="pruefeLoeschBestaetigung()"
+                   onkeydown="if (event.key === 'Enter') { event.preventDefault(); bestaetigeTerminLoeschen(); }"
+                   style="width: 100%; box-sizing: border-box; padding: 0.42rem 0.6rem; border-radius: 7px; border: 1px solid #d1d5db; font-size: 0.9rem;">
+            <small id="termin-loeschen-hinweis"
+                   style="display: block; margin-top: 0.3rem; font-size: 0.78rem; color: #6b7280;">
+                Tippe „kletterhalle“, um den Löschen-Button freizuschalten.
+            </small>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 0.5rem;">
+            <button type="button"
+                    onclick="schliesseTerminLoeschenModal()"
+                    style="padding: 0.42rem 0.85rem; border-radius: 7px; border: 1px solid #d1d5db; background: #f9fafb; color: #374151; font-size: 0.88rem; font-weight: 500; cursor: pointer;">
+                Behalten
+            </button>
+            <button type="button"
+                    id="termin-loeschen-submit"
+                    disabled
+                    onclick="bestaetigeTerminLoeschen()"
+                    style="padding: 0.42rem 0.85rem; border-radius: 7px; border: 1px solid #d1d5db; background: #f3f4f6; color: #9ca3af; font-size: 0.88rem; font-weight: 500; cursor: not-allowed;">
+                Endgültig löschen
+            </button>
+        </div>
+    </div>
+</div>
+
+<div id="nachtrag-wochentag-modal"
+     onclick="if (event.target === this) schliesseNachtragModal()"
+     style="display: none; position: fixed; inset: 0; background: rgba(17, 24, 39, 0.45); z-index: 9999; align-items: center; justify-content: center; padding: 1rem;">
+    <div role="dialog"
+         aria-modal="true"
+         aria-labelledby="nachtrag-modal-titel"
+         style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; max-width: 420px; width: 100%; padding: 1.25rem; box-shadow: 0 12px 30px rgba(0, 0, 0, 0.16);">
+        <h4 id="nachtrag-modal-titel" style="margin: 0 0 0.5rem 0; font-size: 1.05rem; color: #111827;">
+            Abweichender Wochentag
+        </h4>
+        <p id="nachtrag-modal-text" style="margin: 0 0 1.15rem 0; font-size: 0.92rem; color: #4b5563; line-height: 1.45;"></p>
+        <div style="display: flex; justify-content: flex-end; gap: 0.5rem;">
+            <button type="button"
+                    onclick="schliesseNachtragModal()"
+                    style="padding: 0.42rem 0.85rem; border-radius: 7px; border: 1px solid #d1d5db; background: #f9fafb; color: #374151; font-size: 0.88rem; font-weight: 500; cursor: pointer;">
+                Abbrechen
+            </button>
+            <button type="button"
+                    onclick="bestaetigeNachtragModal()"
+                    style="padding: 0.42rem 0.85rem; border-radius: 7px; border: 1px solid #111827; background: #111827; color: #ffffff; font-size: 0.88rem; font-weight: 500; cursor: pointer;">
+                Trotzdem hinzufügen
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+let ausstehendenTerminDatum = null;
+const LOESCH_WORT = "kletterhalle";
+
+let kalenderJahr = null;
+let kalenderMonat = null; // 0-basiert
+
+function pruefeLoeschBestaetigung() {
+    const input = document.getElementById("termin-loeschen-bestaetigung");
+    const btn = document.getElementById("termin-loeschen-submit");
+    const hinweis = document.getElementById("termin-loeschen-hinweis");
+    if (!input || !btn) return;
+
+    const passt = input.value.trim().toLowerCase() === LOESCH_WORT;
+    btn.disabled = !passt;
+
+    if (passt) {
+        btn.style.borderColor = "#dc2626";
+        btn.style.backgroundColor = "#dc2626";
+        btn.style.color = "#ffffff";
+        btn.style.cursor = "pointer";
+        if (hinweis) {
+            hinweis.textContent = "Bestätigung erkannt – du kannst den Termin jetzt löschen.";
+            hinweis.style.color = "#15803d";
+        }
+    } else {
+        btn.style.borderColor = "#d1d5db";
+        btn.style.backgroundColor = "#f3f4f6";
+        btn.style.color = "#9ca3af";
+        btn.style.cursor = "not-allowed";
+        if (hinweis) {
+            hinweis.textContent = "Tippe „kletterhalle“, um den Löschen-Button freizuschalten.";
+            hinweis.style.color = "#6b7280";
+        }
+    }
+}
+
+function oeffneTerminLoeschenModal(datumIso, datumDe) {
+    ausstehendenTerminDatum = datumIso;
+    const modal = document.getElementById("termin-loeschen-modal");
+    const textEl = document.getElementById("termin-loeschen-text");
+    const input = document.getElementById("termin-loeschen-bestaetigung");
+    const anzeigeDatum = datumDe || datumIso;
+
+    if (textEl) {
+        textEl.textContent = `Soll der Termin am ${anzeigeDatum} komplett entfernt werden? Alle eingetragenen Anwesenheiten dieses Tages gehen verloren.`;
+    }
+    if (input) {
+        input.value = "";
+    }
+    pruefeLoeschBestaetigung();
+
+    if (modal) {
+        modal.style.display = "flex";
+    }
+    if (input) {
+        setTimeout(() => input.focus(), 10);
+    }
+}
+
+function schliesseTerminLoeschenModal() {
+    ausstehendenTerminDatum = null;
+    const modal = document.getElementById("termin-loeschen-modal");
+    if (modal) {
+        modal.style.display = "none";
+    }
+}
+
+function bestaetigeTerminLoeschen() {
+    const input = document.getElementById("termin-loeschen-bestaetigung");
+    if (!ausstehendenTerminDatum || !input) return;
+    if (input.value.trim().toLowerCase() !== LOESCH_WORT) return;
+
+    const datumInput = document.getElementById("termin-loeschen-datum");
+    const form = document.getElementById("termin-loeschen-form");
+    if (datumInput && form) {
+        datumInput.value = ausstehendenTerminDatum;
+        form.submit();
+    }
+}
+
+function getIsoNachtragWert() {
+    const hiddenIso = document.getElementById("nachtrag-datum-iso");
+    if (hiddenIso && hiddenIso.value) {
+        return hiddenIso.value.trim();
+    }
+    const sichtbarInput = document.getElementById("nachtrag-datum");
+    return (sichtbarInput?.dataset.isoDatum || "").trim();
+}
+
+function getNachtragWochentagInfo(input) {
+    const isoWert = getIsoNachtragWert();
+    const kuerzelMap = {
+        mo: "montag", di: "dienstag", mi: "mittwoch",
+        do: "donnerstag", fr: "freitag", sa: "samstag", so: "sonntag",
+    };
+    const rawTag = (input.dataset.wochentag || "").trim().toLowerCase();
+    const zielTag = kuerzelMap[rawTag] || rawTag;
+    if (!isoWert || !zielTag) {
+        return { passt: true, text: "" };
+    }
+
+    const teile = isoWert.split("-");
+    if (teile.length !== 3) {
+        return { passt: true, text: "" };
+    }
+
+    const j = Number(teile[0]);
+    const m = Number(teile[1]);
+    const t = Number(teile[2]);
+    const datumObj = new Date(j, m - 1, t);
+    const wochentage = [
+        "sonntag", "montag", "dienstag", "mittwoch",
+        "donnerstag", "freitag", "samstag",
+    ];
+    const gewaehlterTag = wochentage[datumObj.getDay()];
+    const tagGross = gewaehlterTag.charAt(0).toUpperCase() + gewaehlterTag.slice(1);
+    const datumDe = `${String(t).padStart(2, "0")}.${String(m).padStart(2, "0")}.${j}`;
+
+    if (gewaehlterTag !== zielTag) {
+        return {
+            passt: false,
+            text: `Der ${datumDe} fällt auf einen ${tagGross} – regulär findet die Gruppe am ${input.dataset.wochentag.trim()} statt.`,
+        };
+    }
+
+    return { passt: true, text: "" };
+}
+
+function handleTerminHinzufuegen() {
+    const input = document.getElementById("nachtrag-datum");
+    const form = document.getElementById("nachtrag-form");
+    const isoWert = getIsoNachtragWert();
+    if (!input || !form) return;
+
+    if (!isoWert) {
+        oeffneMontagsKalender();
+        return;
+    }
+
+    const info = getNachtragWochentagInfo(input);
+    if (info.passt) {
+        form.submit();
+        return;
+    }
+
+    const modal = document.getElementById("nachtrag-wochentag-modal");
+    const textEl = document.getElementById("nachtrag-modal-text");
+    if (textEl) {
+        textEl.textContent = info.text;
+    }
+    if (modal) {
+        modal.style.display = "flex";
+    }
+}
+
+function schliesseNachtragModal() {
+    const modal = document.getElementById("nachtrag-wochentag-modal");
+    if (modal) {
+        modal.style.display = "none";
+    }
+}
+
+function bestaetigeNachtragModal() {
+    const form = document.getElementById("nachtrag-form");
+    if (form) {
+        form.submit();
+    }
+}
+
+function parseIsoDatum(isoStr) {
+    if (!isoStr || !/^\d{4}-\d{2}-\d{2}$/.test(isoStr)) return null;
+    const [j, m, t] = isoStr.split("-").map(Number);
+    return new Date(j, m - 1, t);
+}
+
+function formatIsoDatum(j, m0, t) {
+    return `${j}-${String(m0 + 1).padStart(2, "0")}-${String(t).padStart(2, "0")}`;
+}
+
+function formatDeDatum(j, m0, t) {
+    return `${String(t).padStart(2, "0")}.${String(m0 + 1).padStart(2, "0")}.${j}`;
+}
+
+function oeffneMontagsKalender() {
+    const sichtbarInput = document.getElementById("nachtrag-datum");
+    const popup = document.getElementById("montags-kalender-popup");
+    if (!sichtbarInput || !popup) return;
+
+    const aktuell =
+        parseIsoDatum(sichtbarInput.dataset.isoDatum) ||
+        parseIsoDatum(sichtbarInput.dataset.maxDatum) ||
+        new Date();
+    kalenderJahr = aktuell.getFullYear();
+    kalenderMonat = aktuell.getMonth();
+
+    const rect = sichtbarInput.getBoundingClientRect();
+    popup.style.top = `${Math.min(window.innerHeight - 310, rect.bottom + 6)}px`;
+    popup.style.left = `${Math.max(8, Math.min(window.innerWidth - 280, rect.left))}px`;
+    popup.style.display = "block";
+
+    rendereMontagsKalender();
+}
+
+function wechsleKalenderMonat(delta) {
+    if (kalenderJahr === null || kalenderMonat === null) return;
+    const d = new Date(kalenderJahr, kalenderMonat + delta, 1);
+    kalenderJahr = d.getFullYear();
+    kalenderMonat = d.getMonth();
+    rendereMontagsKalender();
+}
+
+function rendereMontagsKalender() {
+    const sichtbarInput = document.getElementById("nachtrag-datum");
+    const titelEl = document.getElementById("kalender-monat-titel");
+    const gridEl = document.getElementById("kalender-tage-grid");
+    if (!sichtbarInput || !titelEl || !gridEl) return;
+
+    const monatsNamen = [
+        "Januar", "Februar", "März", "April", "Mai", "Juni",
+        "Juli", "August", "September", "Oktober", "November", "Dezember",
+    ];
+    titelEl.textContent = `${monatsNamen[kalenderMonat]} ${kalenderJahr}`;
+    gridEl.innerHTML = "";
+
+    const ersterTag = new Date(kalenderJahr, kalenderMonat, 1);
+    const startOffsetMontag = (ersterTag.getDay() + 6) % 7; // Mo=0 ... So=6
+    const anzahlTage = new Date(kalenderJahr, kalenderMonat + 1, 0).getDate();
+    const maxIso = sichtbarInput.dataset.maxDatum || "";
+    const gewaehltIso = sichtbarInput.dataset.isoDatum || "";
+
+    const kuerzelMap = {
+        mo: "montag", di: "dienstag", mi: "mittwoch",
+        do: "donnerstag", fr: "freitag", sa: "samstag", so: "sonntag",
+    };
+    const rawTag = (sichtbarInput.dataset.wochentag || "").trim().toLowerCase();
+    const zielTag = kuerzelMap[rawTag] || rawTag;
+    const wochentage = [
+        "sonntag", "montag", "dienstag", "mittwoch",
+        "donnerstag", "freitag", "samstag",
+    ];
+
+    for (let i = 0; i < startOffsetMontag; i++) {
+        const leer = document.createElement("span");
+        gridEl.appendChild(leer);
+    }
+
+    for (let tag = 1; tag <= anzahlTage; tag++) {
+        const iso = formatIsoDatum(kalenderJahr, kalenderMonat, tag);
+        const de = formatDeDatum(kalenderJahr, kalenderMonat, tag);
+        const zuSpaet = Boolean(maxIso && iso > maxIso);
+        const istGewaehlt = iso === gewaehltIso;
+
+        const aktuellesDatumObj = new Date(kalenderJahr, kalenderMonat, tag);
+        const istGruppentag = Boolean(zielTag && wochentage[aktuellesDatumObj.getDay()] === zielTag);
+
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.textContent = String(tag);
+        btn.disabled = zuSpaet;
+        btn.style.padding = "0.28rem 0";
+        btn.style.borderRadius = "6px";
+        btn.style.fontSize = "0.82rem";
+        btn.style.cursor = zuSpaet ? "not-allowed" : "pointer";
+
+        if (zuSpaet) {
+            btn.style.border = "1px solid transparent";
+            btn.style.background = "transparent";
+            btn.style.color = "#d1d5db";
+            btn.style.fontWeight = "400";
+        } else if (istGewaehlt) {
+            btn.style.border = istGruppentag ? "1px solid #15803d" : "1px solid #111827";
+            btn.style.background = istGruppentag ? "#dcfce7" : "#eef2f6";
+            btn.style.color = istGruppentag ? "#14532d" : "#111827";
+            btn.style.fontWeight = "700";
+        } else if (istGruppentag) {
+            btn.style.border = "1px solid #bbf7d0";
+            btn.style.background = "#f0fdf4";
+            btn.style.color = "#166534";
+            btn.style.fontWeight = "600";
+        } else {
+            btn.style.border = "1px solid transparent";
+            btn.style.background = "transparent";
+            btn.style.color = "#111827";
+            btn.style.fontWeight = "400";
+        }
+
+        if (!zuSpaet) {
+            btn.onclick = () => {
+                sichtbarInput.value = de;
+                sichtbarInput.dataset.isoDatum = iso;
+                const hiddenIso = document.getElementById("nachtrag-datum-iso");
+                if (hiddenIso) hiddenIso.value = iso;
+                document.getElementById("montags-kalender-popup").style.display = "none";
+            };
+        }
+        gridEl.appendChild(btn);
+    }
+}
+
+document.addEventListener("click", (event) => {
+    const popup = document.getElementById("montags-kalender-popup");
+    const input = document.getElementById("nachtrag-datum");
+    if (!popup || !input) return;
+    if (
+        popup.style.display === "block" &&
+        !popup.contains(event.target) &&
+        event.target !== input
+    ) {
+        popup.style.display = "none";
+    }
+});
+
+document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+        schliesseTerminLoeschenModal();
+        schliesseNachtragModal();
+        const popup = document.getElementById("montags-kalender-popup");
+        if (popup) popup.style.display = "none";
+    }
+});
+</script>
+{% endif %}
 {% endblock %}

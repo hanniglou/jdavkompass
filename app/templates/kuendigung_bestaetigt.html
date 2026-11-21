@@ -1,0 +1,36 @@
+{% extends "base_extern.html" %}
+
+{% block title %}Eingangsbestätigung Kündigung | JDAV Hildesheim{% endblock %}
+
+{% block content %}
+<h1>Kündigung eingegangen</h1>
+<p>
+    Vielen Dank, <strong>{{ daten.eb_vorname }} {{ daten.eb_nachname }}</strong>. Deine Kündigung für
+    <strong>{{ daten.mitglied_vorname }} {{ daten.mitglied_nachname }}</strong> wurde gespeichert.
+    {% if mail_ok %}
+        Eine Eingangsbestätigung wurde an <strong>{{ daten.eb_email }}</strong> gesendet.
+    {% endif %}
+</p>
+
+<fieldset>
+    <legend>Zusammenfassung</legend>
+    <p><strong>Vorgangsnummer:</strong> #{{ daten.vorgangsnummer }}</p>
+    <p><strong>Teilnehmende Person:</strong> {{ daten.mitglied_vorname }} {{ daten.mitglied_nachname }}</p>
+    <p><strong>Erziehungsberechtigte/r:</strong> {{ daten.eb_vorname }} {{ daten.eb_nachname }} ({{ daten.eb_email }})</p>
+    <p><strong>Gewünschtes Kündigungsdatum:</strong> {{ daten.kuendigungsdatum_de }} ({{ daten.kuendigungsart_label }})</p>
+    <p><strong>Ebenfalls DAV-Sektion kündigen:</strong> {% if daten.dav_sektion_kuendigen %}Ja{% else %}Nein{% endif %}</p>
+    <p><strong>Grund (optional):</strong> {{ daten.grund if daten.grund else "Keine Angabe" }}</p>
+</fieldset>
+
+{% if daten.dav_sektion_kuendigen %}
+<div style="margin-top: 1rem; padding: 0.75rem; border: 1px solid #d97706; background: #fffbeb; border-radius: 6px;">
+    <strong>Hinweis zur DAV-Sektionsmitgliedschaft:</strong> Diese Kündigung gilt ausschließlich für die Jugendgruppe
+    und <strong>nicht</strong> für die Mitgliedschaft in der DAV-Sektion Hildesheim. Bitte wende Dich dafür separat
+    schriftlich an die Sektion (z. B. per E-Mail an <a href="mailto:info@dav-hildesheim.de">info@dav-hildesheim.de</a>).
+</div>
+{% endif %}
+
+<p style="margin-top: 1.5rem;">
+    Sobald wir die Kündigung geprüft und bestätigt haben, erhältst Du eine gesonderte Kündigungsbestätigung.
+</p>
+{% endblock %}

@@ -5,6 +5,7 @@ import os
 from app.routes.auth import require_role
 from app.services.mitglieder_service import get_unapproved_mitglieder_daten
 from app.services.utils import jugendgruppen_preview, heute
+from app.services.kuendigung_service import get_kuendigungen
 
 index_bp = Blueprint("index", __name__)
 
@@ -15,17 +16,14 @@ index_bp = Blueprint("index", __name__)
 def index():
     """Zeigt die Hauptseite für alle eingeloggten Nutzer:innen,
     die mindestens Rolle 1 haben an.
-
-    Returns:
-        Response: HTML Template "index.html" mit den Variablen
-        fuer den aktuellen Nutzer (current_user), dem heutigen Tag
-        und den Gruppen die heute stattfinden.
     """
     heutige_gruppen = [g for g in jugendgruppen_preview() if g["wochentag"] == heute()]
 
     mitglieder_unapproved_daten = []
+    kuendigungen_ausstehend_count = 0
     if getattr(current_user, "role", 0) >= 3:
         mitglieder_unapproved_daten = get_unapproved_mitglieder_daten()
+        kuendigungen_ausstehend_count = len(get_kuendigungen("ausstehende"))
 
     return render_template(
         "index.html",
@@ -33,6 +31,7 @@ def index():
         today=heute(),
         heutige_gruppen=heutige_gruppen,
         mitglieder_unapproved_daten=mitglieder_unapproved_daten,
+        kuendigungen_ausstehend_count=kuendigungen_ausstehend_count,
     )
 
 

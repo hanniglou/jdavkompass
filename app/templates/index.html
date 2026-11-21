@@ -27,6 +27,24 @@
         </a>
     </div>
     {% endif %}
+
+    {% if kuendigungen_ausstehend_count and kuendigungen_ausstehend_count > 0 %}
+    <div class="dashboard-card" style="margin-bottom: 1.5rem;">
+        <h3>Offene Kündigungen</h3>
+        <p>
+            {% if kuendigungen_ausstehend_count == 1 %}
+                Es liegt aktuell <strong>1</strong> Kündigung zur Bearbeitung vor.
+            {% else %}
+                Es liegen aktuell <strong>{{ kuendigungen_ausstehend_count }}</strong> Kündigungen zur Bearbeitung vor.
+            {% endif %}
+        </p>
+        <a href="{{ url_for('mitglieder.kuendigungen_verwalten') }}"
+        class="btn-freigabe"
+        style="background-color: #dc2626; border-color: #dc2626; color: #ffffff;">
+            Zu den Kündigungen
+        </a>
+    </div>
+    {% endif %}
         
 
     <h3>

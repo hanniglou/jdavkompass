@@ -1,0 +1,221 @@
+{% extends "base_intern.html" %}
+
+{% block title %}Account Verwaltung - JDAV Hildesheim{% endblock %}
+
+{% block content %}
+<section class="page-section">
+    <h1>Admin Panel – Account Verwaltung</h1>
+    {% include "admin/_nav.html" %}
+
+    <div class="table-container">
+        <h3>Accounts</h3>
+
+        <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem; align-items: center;">
+            <select id="account-filter-col" class="minimal-select" style="width: auto;">
+                <option value="all">Alle Spalten</option>
+                <option value="0">ID</option>
+                <option value="1">Benutzername</option>
+                <option value="2">Anzeigename</option>
+                <option value="3">Status</option>
+                <option value="4">Rolle</option>
+            </select>
+            <input type="text" id="account-filter-input" placeholder="Nach Begriff filtern..."
+                   style="max-width: 280px; margin: 0;">
+            <button type="button" id="account-filter-reset" class="btn btn-secondary" style="width: auto;">
+                Zurücksetzen
+            </button>
+        </div>
+
+        <table class="table" id="accounts-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Benutzername</th>
+                    <th>Anzeigename</th>
+                    <th>Status</th>
+                    <th>Rolle</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for acc in accounts %}
+                {% set rollen_labels = {"1": "View-only", "2": "JuLei", "3": "Gruppenplaner:in", "4": "Admin"} %}
+                {% set aktuelle_rolle_label = rollen_labels.get(acc.role|string, acc.role|string) %}
+                <tr>
+                    <td>{{ acc.id }}</td>
+                    <td>{{ acc.uname }}</td>
+                    <td>{{ acc.anzeigename or acc.uname }}</td>
+                    <td>{{ acc.status }}</td>
+                    <td data-search-text="{{ aktuelle_rolle_label }}">
+                        {% if acc.role != 4 %}
+                        <form method="POST" class="inline-form">
+                            <input type="hidden" name="account_id" value="{{ acc.id }}">
+
+                            {% if acc.status == "pending" %}
+                            <button type="submit" name="action" value="approve" class="btn-submit">
+                                Freischalten
+                            </button>
+                            {% else %}
+                            <select name="new_role" class="minimal-select">
+                                {% for role, label in rollen_labels.items() %}
+                                <option value="{{ role }}" {% if acc.role|string == role %}selected{% endif %}>
+                                    {{ label }}
+                                </option>
+                                {% endfor %}
+                            </select>
+
+                            <button type="submit" name="action" value="change_role" class="btn-submit">
+                                Speichern
+                            </button>
+                            {% endif %}
+
+                            <button
+                                type="submit"
+                                name="action"
+                                value="delete"
+                                class="btn-delete"
+                                onclick="return confirm('Diesen Account endgültig löschen?');"
+                            >
+                                Löschen
+                            </button>
+                        </form>
+                        {% else %}
+                        <span class="text-muted">
+                            Admin-Accounts können nicht geändert werden
+                        </span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const colSelect = document.getElementById("account-filter-col");
+    const searchInput = document.getElementById("account-filter-input");
+    const resetBtn = document.getElementById("account-filter-reset");
+    const rows = Array.from(document.querySelectorAll("#accounts-table tbody tr"));
+
+    function filterAccounts() {
+        const col = colSelect.value;
+        const term = searchInput.value.trim().toLowerCase();
+
+        rows.forEach((row) => {
+            if (!term) {
+                row.style.display = "";
+                return;
+            }
+
+            let textToCheck = "";
+            if (col === "all") {
+                textToCheck = Array.from(row.cells).map((cell) => {
+                    const extra = cell.getAttribute("data-search-text") || "";
+                    return (cell.innerText + " " + extra).toLowerCase();
+                }).join(" ");
+            } else {
+                const idx = parseInt(col, 10);
+                const cell = row.cells[idx];
+                const extra = cell ? (cell.getAttribute("data-search-text") || "") : "";
+                textToCheck = ((cell ? cell.innerText : "") + " " + extra).toLowerCase();
+            }
+
+            row.style.display = textToCheck.includes(term) ? "" : "none";
+        });
+    }
+
+    if (colSelect && searchInput && resetBtn) {
+        colSelect.addEventListener("change", filterAccounts);
+        searchInput.addEventListener("input", filterAccounts);
+        resetBtn.addEventListener("click", () => {
+            colSelect.value = "all";
+            searchInput.value = "";
+            filterAccounts();
+        });
+    }
+
+    const tables = document.querySelectorAll(".table");
+    if (!tables.length) return;
+
+    tables.forEach(table => {
+        const headers = table.querySelectorAll("thead th");
+        const tbody = table.querySelector("tbody");
+        if (!tbody) return;
+
+        function parseCellValue(text) {
+            const clean = text.trim();
+            if (!clean || clean === "-") return "";
+
+            const deDate = clean.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+            if (deDate) {
+                return `${deDate[3]}-${deDate[2]}-${deDate[1]}`;
+            }
+
+            if (/^\d+(\.\d+)?$/.test(clean)) {
+                return parseFloat(clean);
+            }
+
+            return clean.toLowerCase();
+        }
+
+        headers.forEach((th, colIndex) => {
+            const title = th.textContent.trim();
+            if (!title || title.toLowerCase() === "aktion" || title.toLowerCase() === "aktionen") {
+                return;
+            }
+
+            th.classList.add("sortable-th");
+            th.dataset.order = "none";
+
+            const arrow = document.createElement("span");
+            arrow.className = "sort-arrow";
+            th.appendChild(arrow);
+
+            th.addEventListener("click", () => {
+                const nextOrder = th.dataset.order === "asc" ? "desc" : "asc";
+
+                headers.forEach(h => {
+                    h.dataset.order = "none";
+                    h.classList.remove("sorted-asc", "sorted-desc");
+                    const a = h.querySelector(".sort-arrow");
+                    if (a) a.textContent = "";
+                });
+
+                th.dataset.order = nextOrder;
+                th.classList.add(nextOrder === "asc" ? "sorted-asc" : "sorted-desc");
+                arrow.textContent = nextOrder === "asc" ? " ↓" : " ↑";
+
+                const currentRows = Array.from(tbody.querySelectorAll("tr"));
+
+                currentRows.sort((rowA, rowB) => {
+                    const cellA = rowA.children[colIndex];
+                    const cellB = rowB.children[colIndex];
+                    if (!cellA || !cellB) return 0;
+
+                    const rawA = cellA.querySelector("input, select")?.value ?? cellA.textContent;
+                    const rawB = cellB.querySelector("input, select")?.value ?? cellB.textContent;
+
+                    const valA = parseCellValue(rawA);
+                    const valB = parseCellValue(rawB);
+
+                    if (valA === "" && valB !== "") return 1;
+                    if (valB === "" && valA !== "") return -1;
+
+                    let cmp = 0;
+                    if (typeof valA === "number" && typeof valB === "number") {
+                        cmp = valA - valB;
+                    } else {
+                        cmp = String(valA).localeCompare(String(valB), "de", { numeric: true });
+                    }
+
+                    return nextOrder === "asc" ? cmp : -cmp;
+                });
+
+                currentRows.forEach(row => tbody.appendChild(row));
+            });
+        });
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,94 @@
+{% extends "base_intern.html" %}
+
+{% block title %}Änderungslog - Admin - JDAV Hildesheim{% endblock %}
+
+{% block content %}
+<section class="page-section">
+    <h1>Änderungslog</h1>
+    {% include "admin/_nav.html" %}
+
+    <p style="color: #4b5563; margin-bottom: 1rem;">
+        Übersicht aller protokollierten Änderungen inklusive Zeitpunkt und beteiligtem Account.
+    </p>
+
+    {% set pill_base = "display: inline-flex; align-items: center; padding: 0.35rem 0.75rem; border-radius: 7px; text-decoration: none; font-size: 0.88rem; font-weight: 500; transition: all 0.15s ease;" %}
+    {% set pill_active = "background-color: #eef2f6; color: #111827; border: 1px solid #9ca3af; box-shadow: inset 0 1px 2px rgba(0,0,0,0.04);" %}
+    {% set pill_inactive = "background-color: #f9fafb; color: #4b5563; border: 1px solid #d1d5db;" %}
+
+    <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 1.25rem; padding: 0.75rem 1rem; background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px;">
+        
+        {# Links: Anzahl der Einträge #}
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem;">
+            <span style="color: #4b5563; font-size: 0.88rem; font-weight: 600; margin-right: 0.25rem;">
+                Letzte Einträge:
+            </span>
+
+            {% set limit_optionen = [
+                ('50', '50'),
+                ('100', '100'),
+                ('1000', '1000'),
+                ('alle', 'Alle')
+            ] %}
+
+            {% for wert, label in limit_optionen %}
+                {% set ist_aktiv = (aktives_limit == wert) %}
+                {% if zeige_alle %}
+                    {% set ziel_url = url_for('admin.admin_log', limit=wert, alle=1) %}
+                {% else %}
+                    {% set ziel_url = url_for('admin.admin_log', limit=wert) %}
+                {% endif %}
+
+                <a href="{{ ziel_url }}"
+                   style="{{ pill_base }} {% if ist_aktiv %}{{ pill_active }}{% else %}{{ pill_inactive }}{% endif %}">
+                    {{ label }}
+                </a>
+            {% endfor %}
+        </div>
+
+        {# Rechts: Nur Nutzer vs. Auch System #}
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem;">
+            <span style="color: #4b5563; font-size: 0.88rem; font-weight: 600; margin-right: 0.25rem;">
+                Quelle:
+            </span>
+
+            <a href="{{ url_for('admin.admin_log', limit=aktives_limit) }}"
+               style="{{ pill_base }} {% if not zeige_alle %}{{ pill_active }}{% else %}{{ pill_inactive }}{% endif %}">
+                Nur Nutzer:innen
+            </a>
+
+            <a href="{{ url_for('admin.admin_log', limit=aktives_limit, alle=1) }}"
+               style="{{ pill_base }} {% if zeige_alle %}{{ pill_active }}{% else %}{{ pill_inactive }}{% endif %}">
+                Auch System
+            </a>
+        </div>
+
+    </div>
+
+    <div class="table-container">
+        {% if log_eintraege %}
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Zeitpunkt</th>
+                    <th>Account</th>
+                    <th>Details</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for entry in log_eintraege %}
+                <tr>
+                    <td style="white-space: nowrap;">{{ entry.zeitpunkt }}</td>
+                    <td><strong>{{ entry.account }}</strong></td>
+                    <td>{{ entry.beschreibung }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="alert alert-info">
+            Aktuell liegen keine Änderungslog-Einträge für diesen Filter vor.
+        </div>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}

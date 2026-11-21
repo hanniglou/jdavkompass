@@ -10,7 +10,79 @@
         </a>
     </div>
 
-    <!-- 1. Gruppenparameter bearbeiten -->
+    <!-- 1. Mitglieder verwalten -->
+    <div class="table-container" style="margin-bottom: 30px; padding: 20px;">
+        <h3>Mitglieder der Gruppe ({{ aktive_mitglieder|length }})</h3>
+
+        <div style="margin-bottom: 15px;">
+            <input type="text" id="search_mitglied" placeholder="Mitglied suchen und hinzufügen..." oninput="searchMitglied()" style="width: 100%; max-width: 400px;">
+            <div id="mitglieder_results" style="margin-top: 8px;"></div>
+        </div>
+
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Geburtsdatum</th>
+                    <th>Aktion</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for mitglied in aktive_mitglieder %}
+                <tr>
+                    <td>{{ mitglied.vorname }} {{ mitglied.nachname }}</td>
+                    <td>{{ mitglied.geburtsdatum or '-' }}</td>
+                    <td>
+                        <button type="button" class="btn-remove" onclick="removeMitglied({{ mitglied.id }})">
+                            aus Gruppe entfernen
+                        </button>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="3"><em>Keine Mitglieder zugeordnet.</em></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- 2. Jugendleitende verwalten -->
+    <div class="table-container" style="margin-bottom: 30px; padding: 20px;">
+        <h3>Jugendleitende ({{ aktive_leiter|length }})</h3>
+
+        <div style="margin-bottom: 15px;">
+            <input type="text" id="search_gruppenleiter" placeholder="Gruppenleiter:in suchen und hinzufügen..." oninput="searchGruppenleiter()" style="width: 100%; max-width: 400px;">
+            <div id="gruppenleiter_results" style="margin-top: 8px;"></div>
+        </div>
+
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Aktion</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for leiter in aktive_leiter %}
+                <tr>
+                    <td>{{ leiter.vorname }} {{ leiter.nachname }}</td>
+                    <td>
+                        <button type="button" class="btn-remove" onclick="removeGruppenleiter({{ leiter.id }})">
+                            aus Gruppe entfernen
+                        </button>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="2"><em>Keine Jugendleitenden zugeordnet.</em></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- 3. Gruppenparameter bearbeiten -->
     <div class="table-container" style="margin-bottom: 30px; padding: 20px;">
         <h3>Gruppenparameter</h3>
         <form method="POST" action="{{ url_for('gruppe.gruppe_bearbeiten', gruppe_id=gruppe.id) }}">
@@ -50,78 +122,6 @@
             </div>
             <button type="submit" class="btn-submit">Änderungen speichern</button>
         </form>
-    </div>
-
-    <!-- 2. Mitglieder verwalten -->
-    <div class="table-container" style="margin-bottom: 30px; padding: 20px;">
-        <h3>Mitglieder der Gruppe ({{ aktive_mitglieder|length }})</h3>
-
-        <div style="margin-bottom: 15px;">
-            <input type="text" id="search_mitglied" placeholder="Mitglied suchen und hinzufügen..." oninput="searchMitglied()" style="width: 100%; max-width: 400px;">
-            <div id="mitglieder_results" style="margin-top: 8px;"></div>
-        </div>
-
-        <table class="table">
-            <thead>
-                <tr>
-                    <th>Name</th>
-                    <th>Geburtsdatum</th>
-                    <th>Aktion</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for mitglied in aktive_mitglieder %}
-                <tr>
-                    <td>{{ mitglied.vorname }} {{ mitglied.nachname }}</td>
-                    <td>{{ mitglied.geburtsdatum or '-' }}</td>
-                    <td>
-                        <button type="button" class="btn-remove" onclick="removeMitglied({{ mitglied.id }})">
-                            aus Gruppe entfernen
-                        </button>
-                    </td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="3"><em>Keine Mitglieder zugeordnet.</em></td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-
-    <!-- 3. Gruppenleiter:innen verwalten -->
-    <div class="table-container" style="margin-bottom: 30px; padding: 20px;">
-        <h3>Gruppenleiter:innen ({{ aktive_leiter|length }})</h3>
-
-        <div style="margin-bottom: 15px;">
-            <input type="text" id="search_gruppenleiter" placeholder="Gruppenleiter:in suchen und hinzufügen..." oninput="searchGruppenleiter()" style="width: 100%; max-width: 400px;">
-            <div id="gruppenleiter_results" style="margin-top: 8px;"></div>
-        </div>
-
-        <table class="table">
-            <thead>
-                <tr>
-                    <th>Name</th>
-                    <th>Aktion</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for leiter in aktive_leiter %}
-                <tr>
-                    <td>{{ leiter.vorname }} {{ leiter.nachname }}</td>
-                    <td>
-                        <button type="button" class="btn-remove" onclick="removeGruppenleiter({{ leiter.id }})">
-                            aus Gruppe entfernen
-                        </button>
-                    </td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="2"><em>Keine Gruppenleiter:innen zugeordnet.</em></td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
     </div>
 
     <!-- 4. Gruppe löschen (nur für Admins) -->

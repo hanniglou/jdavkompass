@@ -1,5 +1,20 @@
 from app.models import get_kompass
+from datetime import datetime
 
+from io import BytesIO
+import zipfile
+import pandas as pd
+from openpyxl.styles import Alignment, Font
+from openpyxl.utils import get_column_letter
+
+def _formatiere_kuendigung_datum_de(wert):
+    if not wert:
+        return None
+    text = str(wert).strip()[:10]
+    try:
+        return datetime.strptime(text, "%Y-%m-%d").strftime("%d.%m.%Y")
+    except ValueError:
+        return text
 
 def mitglied_zu_gruppe_hinzufuegen(gruppe_id, mitglied_id):
     with get_kompass() as conn:
@@ -128,6 +143,7 @@ def get_mitglieder(gruppe_id):
                 m.vorname,
                 m.nachname,
                 m.geburtsdatum,
+                m.kuendigung_datum,
                 e.telefon
             FROM
                 mitglieder m
@@ -145,7 +161,14 @@ def get_mitglieder(gruppe_id):
             """,
             (gruppe_id,),
         )
-        mitglieder = cursor.fetchall()
+        rows = cursor.fetchall()
+
+    mitglieder = []
+    for row in rows:
+        m = dict(row)
+        m["kuendigung_datum_de"] = _formatiere_kuendigung_datum_de(m.get("kuendigung_datum"))
+        mitglieder.append(m)
+
     return mitglieder
 
 
@@ -348,3 +371,144 @@ def update_vertretungen(gruppe_id, feste_leiter, request, daten):
                     """,
                     (gl_id, gruppe_id, datum),
                 )
+def baue_anwesenheits_excel(gruppe_id: int) -> tuple[BytesIO, str]:
+    with get_kompass() as conn:
+        cursor = conn.cursor()
+
+        gruppe_row = cursor.execute(
+            "SELECT id, name FROM jugendgruppen WHERE id = ?",
+            (gruppe_id,),
+        ).fetchone()
+
+        cursor.execute(
+            """
+            SELECT
+                vorname,
+                nachname,
+                datum,
+                anwesend
+            FROM
+                anwesenheit
+                JOIN mitglieder m ON mitglied_id = m.id
+            WHERE
+                gruppe_id = ?
+            """,
+            (gruppe_id,),
+        )
+        anwesenheit_mitglieder = cursor.fetchall()
+
+        cursor.execute(
+            """
+            SELECT
+                vorname,
+                nachname,
+                datum,
+                anwesend
+            FROM
+                anwesenheit_leiter
+                JOIN gruppenleiter gl ON gruppenleiter_id = gl.id
+            WHERE
+                gruppe_id = ?
+            """,
+            (gruppe_id,),
+        )
+        anwesenheit_gruppenleiter = cursor.fetchall()
+
+    df_m = pd.DataFrame(
+        anwesenheit_mitglieder, columns=["vorname", "nachname", "datum", "anwesend"]
+    )
+    df_l = pd.DataFrame(
+        anwesenheit_gruppenleiter, columns=["vorname", "nachname", "datum", "anwesend"]
+    )
+
+    df_m["Rolle"] = "Mitglied"
+    df_l["Rolle"] = "Gruppenleiter:in"
+
+    df = pd.concat([df_m, df_l], ignore_index=True)
+    output = BytesIO()
+
+    if df.empty:
+        with pd.ExcelWriter(output, engine="openpyxl") as writer:
+            pd.DataFrame({"Hinweis": ["Keine Anwesenheitsdaten vorhanden."]}).to_excel(
+                writer, sheet_name="Anwesenheit", index=False
+            )
+    else:
+        df["Person"] = df["vorname"] + " " + df["nachname"]
+        df["datum"] = pd.to_datetime(df["datum"])
+
+        table = pd.pivot_table(
+            df,
+            index=["Rolle", "Person"],
+            columns="datum",
+            values="anwesend",
+            aggfunc="max",
+        )
+
+        table = table.fillna(0).replace({1: "X", 2: "E", 0: ""})
+        table = table.sort_index(axis=1)
+        table.columns = table.columns.strftime("%d.%m.%Y")
+
+        with pd.ExcelWriter(output, engine="openpyxl") as writer:
+            table.to_excel(writer, sheet_name="Anwesenheit")
+            sheet = writer.sheets["Anwesenheit"]
+
+            for cell in sheet[1]:
+                cell.font = Font(bold=True)
+
+            for cell in sheet["A"]:
+                if cell.row != 1 and cell.value in ["Mitglied", "Gruppenleiter:in"]:
+                    cell.font = Font(bold=True)
+
+            for row in sheet.iter_rows(min_row=2, min_col=3):
+                for cell in row:
+                    cell.alignment = Alignment(horizontal="center")
+
+            for col in sheet.columns:
+                max_length = 0
+                col_letter = get_column_letter(col[0].column)
+                for cell in col:
+                    try:
+                        if cell.value:
+                            max_length = max(max_length, len(str(cell.value)))
+                    except Exception:
+                        pass
+                sheet.column_dimensions[col_letter].width = max_length + 3
+
+            sheet.freeze_panes = "C2"
+            sheet.auto_filter.ref = sheet.dimensions
+
+    output.seek(0)
+    gruppen_name = ""
+    if gruppe_row and gruppe_row["name"]:
+        gruppen_name = "".join(
+            ch if ch.isalnum() or ch in ("-", "_") else "_"
+            for ch in str(gruppe_row["name"]).strip()
+        ).strip("_")
+
+    dateiname = (
+        f"anwesenheit_{gruppen_name}_{gruppe_id}.xlsx"
+        if gruppen_name
+        else f"anwesenheit_gruppe_{gruppe_id}.xlsx"
+    )
+    return output, dateiname
+
+def termin_loeschen(gruppe_id: int, datum: str) -> None:
+    with get_kompass() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "DELETE FROM anwesenheit WHERE gruppe_id = ? AND datum = ?",
+            (gruppe_id, datum),
+        )
+        cursor.execute(
+            "DELETE FROM anwesenheit_leiter WHERE gruppe_id = ? AND datum = ?",
+            (gruppe_id, datum),
+        )
+        # Falls du eine Tabelle für Vertretungen mit Spalte datum hast, hier optional ergänzen:
+        try:
+            cursor.execute(
+                "DELETE FROM vertretungen WHERE gruppe_id = ? AND datum = ?",
+                (gruppe_id, datum),
+            )
+        except Exception:
+            pass
+        conn.commit()

@@ -2,10 +2,11 @@
 {% block title %}Mitglieder bearbeiten - JDAV Hildesheim{% endblock %}
 {% block content %}
 <section class="page-section">
-    <h2>Mitglied bearbeiten</h2>
+    <h1>Mitglied bearbeiten</h1>
 
-    <div class="form-card flex">
-        <form method="POST">
+    <div class="form-card flex" style="flex-direction: column; gap: 0;">
+        <form method="POST" style="row-gap: 0;">
+            <input type="hidden" name="action" value="speichern">
 
             <div class="form-section">
                 <h3>Mitglied</h3>
@@ -14,37 +15,22 @@
 
                     <div class="form-group">
                         <label>Vorname</label>
-                        <input type="text" name="vorname" value="{{ mitglied.vorname }}">
+                        <input type="text" name="vorname" value="{{ mitglied.vorname or '' }}">
                     </div>
 
                     <div class="form-group">
                         <label>Nachname</label>
-                        <input type="text" name="nachname" value="{{ mitglied.nachname }}">
+                        <input type="text" name="nachname" value="{{ mitglied.nachname or '' }}">
                     </div>
 
                     <div class="form-group">
                         <label>Geburtsdatum</label>
-                        <input type="date" name="geburtsdatum" value="{{ mitglied.geburtsdatum }}">
-                    </div>
-
-                    <div class="form-group">
-                        <label>Geschlecht</label>
-                        <select name="geschlecht">
-                            <option value="m" {% if mitglied.geschlecht=='m' %}selected{% endif %}>
-                                Männlich
-                            </option>
-                            <option value="w" {% if mitglied.geschlecht=='w' %}selected{% endif %}>
-                                Weiblich
-                            </option>
-                            <option value="d" {% if mitglied.geschlecht=='d' %}selected{% endif %}>
-                                Divers
-                            </option>
-                        </select>
+                        <input type="date" name="geburtsdatum" value="{{ mitglied.geburtsdatum or '' }}">
                     </div>
 
                     <div class="form-group">
                         <label>Mitgliedsnummer</label>
-                        <input type="text" name="mitgliedsnummer" value="{{ mitglied.mitgliedsnummer }}">
+                        <input type="text" name="mitgliedsnummer" value="{{ mitglied.mitgliedsnummer or '' }}">
                     </div>
 
                 </div>
@@ -57,62 +43,165 @@
 
                     <div class="form-group">
                         <label>Straße</label>
-                        <input type="text" name="strasse" value="{{ mitglied.strasse }}">
+                        <input type="text" name="strasse" value="{{ mitglied.strasse or '' }}">
                     </div>
 
                     <div class="form-group">
                         <label>Hausnummer</label>
-                        <input type="text" name="hausnummer" value="{{ mitglied.hausnummer }}">
+                        <input type="text" name="hausnummer" value="{{ mitglied.hausnummer or '' }}">
                     </div>
 
                     <div class="form-group">
                         <label>PLZ</label>
-                        <input type="text" name="plz" value="{{ mitglied.plz }}">
+                        <input type="text" name="plz" value="{{ mitglied.plz or '' }}">
                     </div>
 
                     <div class="form-group">
                         <label>Ort</label>
-                        <input type="text" name="ort" value="{{ mitglied.ort }}">
+                        <input type="text" name="ort" value="{{ mitglied.ort or '' }}">
                     </div>
 
                 </div>
             </div>
 
             <div class="form-section">
-                <h3>Erziehungsberechtigte</h3>
+                <h3>Erziehungsberechtigte:r</h3>
 
                 <div class="form-grid">
 
-                    <input type="hidden" name="eb_id" value="{{ erziehungsberechtigte.id }}">
+                    <input type="hidden" name="eb_id" value="{{ erziehungsberechtigte.id or '' }}">
 
                     <div class="form-group">
                         <label>Vorname</label>
-                        <input type="text" name="eb_vorname" value="{{ erziehungsberechtigte.vorname }}">
+                        <input type="text" name="eb_vorname" value="{{ erziehungsberechtigte.vorname or '' }}">
                     </div>
 
                     <div class="form-group">
                         <label>Nachname</label>
-                        <input type="text" name="eb_nachname" value="{{ erziehungsberechtigte.nachname }}">
+                        <input type="text" name="eb_nachname" value="{{ erziehungsberechtigte.nachname or '' }}">
                     </div>
 
                     <div class="form-group">
                         <label>Email</label>
-                        <input type="email" name="eb_email" value="{{ erziehungsberechtigte.email }}">
+                        <input type="email" name="eb_email" value="{{ erziehungsberechtigte.email or '' }}">
                     </div>
 
                     <div class="form-group">
                         <label>Telefon</label>
-                        <input type="text" name="eb_telefon" value="{{ erziehungsberechtigte.telefon }}">
+                        <input type="text" name="eb_telefon" value="{{ erziehungsberechtigte.telefon or '' }}">
                     </div>
 
                 </div>
             </div>
 
-            <div class="form-actions">
-                <button type="submit" class="btn-submit">Speichern</button>
+            <div class="form-actions" style="padding-bottom: 0.65rem; margin-top: 0;">
+                <button type="submit" class="btn-submit">Mitgliedsdaten speichern</button>
             </div>
 
         </form>
+
+        <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 0;">
+
+        <form method="POST"
+              style="padding-top: 0.65rem;"
+              onsubmit="return confirm('Manuelle Kündigung für {{ mitglied.vorname }} {{ mitglied.nachname }} wirklich erfassen?');">
+            <input type="hidden" name="action" value="manuelle_kuendigung">
+
+            <div class="form-section">
+                <h3 style="margin-top: 0;">Kündigung manuell erfassen</h3>
+                <p style="margin: 0 0 1rem 0; color: #4b5563; font-size: 0.92rem;">
+                    Für formlose, außerordentliche oder rückwirkende Kündigungen.
+                    {% if mitglied.kuendigung_datum %}
+                        Aktuell vermerkt: <strong>{{ mitglied.kuendigung_datum }}</strong>
+                        {% if mitglied.kuendigung_vorgangsnummer %}(Vorgang {{ mitglied.kuendigung_vorgangsnummer }}){% endif %}.
+                    {% endif %}
+                </p>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="manuelles-kuendigungsdatum">Kündigungsdatum</label>
+                        <input
+                            type="date"
+                            id="manuelles-kuendigungsdatum"
+                            name="kuendigungsdatum"
+                            value="{{ mitglied.kuendigung_datum or '' }}"
+                            required
+                        >
+                    </div>
+                </div>
+
+                <div style="margin-top: 1rem; display: flex; flex-direction: column; gap: 0.5rem;">
+                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                        <input type="checkbox" name="sende_bestaetigung" value="1">
+                        <span>
+                            Kündigungsbestätigung an hinterlegte E-Mail senden
+                            {% if erziehungsberechtigte.email %}
+                                (<strong>{{ erziehungsberechtigte.email }}</strong>)
+                            {% else %}
+                                <em>(keine E-Mail hinterlegt)</em>
+                            {% endif %}
+                        </span>
+                    </label>
+                </div>
+
+                {% if adressbuch_eintraege %}
+                <div style="margin-top: 1rem;">
+                    <label style="display: block; font-weight: 600; margin-bottom: 0.45rem;">
+                        Benachrichtigungs-Mail an Adressbuch-Einträge senden:
+                    </label>
+                    <div style="display: flex; flex-direction: column; gap: 0.35rem;">
+                        {% for eintrag in adressbuch_eintraege %}
+                        {% set anzeige_name = eintrag.name or eintrag.bezeichnung or eintrag.titel or eintrag.label or 'Ohne Namen' %}
+                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                            <input type="checkbox" name="adressbuch_ids" value="{{ eintrag.id }}">
+                            <span>
+                                <strong>{{ anzeige_name }}</strong>
+                                {% if eintrag.email %} ({{ eintrag.email }}){% endif %}
+                            </span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
+                <div class="form-actions" style="margin-top: 1rem; padding-bottom: 1.5rem;">
+                    <button type="submit"
+                            class="btn-submit"
+                            style="background-color: #d97706; border-color: #d97706; color: #ffffff;">
+                        Kündigung manuell erfassen
+                    </button>
+                </div>
+            </div>
+        </form>
+
+        <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 0;">
+
+        <div class="form-section" style="padding-top: 1.5rem;">
+            <h3>Mitglied archivieren</h3>
+            <p style="margin: 0 0 1rem 0; color: #4b5563; font-size: 0.92rem;">
+                Verschiebt das Mitglied direkt ins Archiv (z. B. bei doppelten oder bereits länger beendeten Einträgen), ohne eine Kündigung zu vermerken.
+            </p>
+
+            {% if mitglied.archiviert %}
+            <form method="POST" style="display: inline-block;">
+                <input type="hidden" name="action" value="entarchivieren">
+                <button type="submit" class="btn-submit">
+                    Aus Archiv wiederherstellen
+                </button>
+            </form>
+            {% else %}
+            <form method="POST"
+                  onsubmit="return confirm('{{ mitglied.vorname }} {{ mitglied.nachname }} ohne Kündigung direkt ins Archiv verschieben?');"
+                  style="display: inline-block;">
+                <input type="hidden" name="action" value="archivieren">
+                <button type="submit"
+                        class="btn-submit"
+                        style="background-color: #4b5563; border-color: #4b5563; color: #ffffff;">
+                    Mitglied archivieren
+                </button>
+            </form>
+            {% endif %}
+        </div>
     </div>
 </section>
 {% endblock %}

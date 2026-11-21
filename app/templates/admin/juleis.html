@@ -1,0 +1,231 @@
+{% extends "base_intern.html" %}
+
+{% block title %}JuLei Verwaltung - JDAV Hildesheim{% endblock %}
+
+{% block content %}
+<section class="page-section">
+    <h1>Admin Panel – JuLei Verwaltung</h1>
+    {% include "admin/_nav.html" %}
+
+    <div class="table-container">
+        <h3>Jugendleitende</h3>
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Vorname</th>
+                    <th>Nachname</th>
+                    <th>Geburtsdatum</th>
+                    <th>IBAN</th>
+                    <th>BIC</th>
+                    <th>Bank</th>
+                    <th>Telefon</th>
+                    <th>Gruppenrolle</th>
+                    <th>Vereinsrolle</th>
+                    <th>Jugendgruppe</th>
+                    <th>Aktion</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for leiter in gruppenleiter %}
+                <tr>
+                    <td>{{ leiter.vorname }}</td>
+                    <td>{{ leiter.nachname }}</td>
+                    <td>{{ leiter.geburtsdatum }}</td>
+                    <td>{{ leiter.iban }}</td>
+                    <td>{{ leiter.bic }}</td>
+                    <td>{{ leiter.bank }}</td>
+                    <td>{{ leiter.telefon }}</td>
+                    <td>{{ leiter.gruppenrolle }}</td>
+                    <td>{{ leiter.vereinsrolle }}</td>
+
+                    {% if leiter.jugendgruppen %}
+                    <td>{{ leiter.jugendgruppen.replace(',', '<br>') | safe }}</td>
+                    {% else %}
+                    <td>Noch keine Gruppen</td>
+                    {% endif %}
+
+                    <td>
+                        <a
+                            href="{{ url_for('admin.gruppenleiter_bearbeiten', gruppenleiter_id=leiter.id) }}"
+                            class="btn btn-success"
+                        >
+                            Bearbeiten
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="form-card">
+        <h3>Neue:n Jugendleiter:in hinzufügen</h3>
+        <form method="POST" action="{{ url_for('admin.add_gruppenleiter') }}">
+
+            <div class="form-section">
+                <div class="form-grid">
+
+                    <div class="form-group">
+                        <label>Vorname</label>
+                        <input type="text" name="vorname" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Nachname</label>
+                        <input type="text" name="nachname" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Geburtsdatum</label>
+                        <input type="date" name="geburtsdatum" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>IBAN</label>
+                        <input type="text" name="iban" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>BIC</label>
+                        <input type="text" name="bic" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Bank</label>
+                        <input type="text" name="bank" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Telefon</label>
+                        <input type="text" name="telefon" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Gruppenrolle</label>
+                        <select name="gruppenrolle" required>
+                            <option value="">Gruppenrolle wählen</option>
+                            <option value="Jugendleiter:in">Jugendleiter:in</option>
+                            <option value="Helfer:in">Helfer:in</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Vereinsrolle</label>
+                        <select name="vereinsrolle" required>
+                            <option value="">Vereinsrolle wählen</option>
+                            <option value="keine">keine</option>
+                            <option value="Jugendausschuss">Jugendausschuss</option>
+                            <option value="Jugendreferent:in">Jugendreferent:in</option>
+                        </select>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Verknüpfter Account (optional)</label>
+                <select name="account_id">
+                    <option value="">Kein Account verknüpft</option>
+                    {% for acc in accounts %}
+                        {% set label = acc.anzeigename or acc.uname %}
+                        <option value="{{ acc.id }}">{{ label }} ({{ acc.uname }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn-submit">
+                    Jugendleiter:in hinzufügen
+                </button>
+            </div>
+
+        </form>
+    </div>
+</section>
+{% endblock %}
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const tables = document.querySelectorAll(".table");
+    if (!tables.length) return;
+
+    tables.forEach(table => {
+        const headers = table.querySelectorAll("thead th");
+        const tbody = table.querySelector("tbody");
+        if (!tbody) return;
+
+        function parseCellValue(text) {
+            const clean = text.trim();
+            if (!clean || clean === "-") return "";
+
+            const deDate = clean.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+            if (deDate) {
+                return `${deDate[3]}-${deDate[2]}-${deDate[1]}`;
+            }
+
+            if (/^\d+(\.\d+)?$/.test(clean)) {
+                return parseFloat(clean);
+            }
+
+            return clean.toLowerCase();
+        }
+
+        headers.forEach((th, colIndex) => {
+            const title = th.textContent.trim();
+            if (!title || title.toLowerCase() === "aktion" || title.toLowerCase() === "aktionen") {
+                return;
+            }
+
+            th.classList.add("sortable-th");
+            th.dataset.order = "none";
+
+            const arrow = document.createElement("span");
+            arrow.className = "sort-arrow";
+            th.appendChild(arrow);
+
+            th.addEventListener("click", () => {
+                const nextOrder = th.dataset.order === "asc" ? "desc" : "asc";
+
+                headers.forEach(h => {
+                    h.dataset.order = "none";
+                    h.classList.remove("sorted-asc", "sorted-desc");
+                    const a = h.querySelector(".sort-arrow");
+                    if (a) a.textContent = "";
+                });
+
+                th.dataset.order = nextOrder;
+                th.classList.add(nextOrder === "asc" ? "sorted-asc" : "sorted-desc");
+                arrow.textContent = nextOrder === "asc" ? " ↓" : " ↑";
+
+                const rows = Array.from(tbody.querySelectorAll("tr"));
+
+                rows.sort((rowA, rowB) => {
+                    const cellA = rowA.children[colIndex];
+                    const cellB = rowB.children[colIndex];
+                    if (!cellA || !cellB) return 0;
+
+                    const rawA = cellA.querySelector("input, select")?.value ?? cellA.textContent;
+                    const rawB = cellB.querySelector("input, select")?.value ?? cellB.textContent;
+
+                    const valA = parseCellValue(rawA);
+                    const valB = parseCellValue(rawB);
+
+                    if (valA === "" && valB !== "") return 1;
+                    if (valB === "" && valA !== "") return -1;
+
+                    let cmp = 0;
+                    if (typeof valA === "number" && typeof valB === "number") {
+                        cmp = valA - valB;
+                    } else {
+                        cmp = String(valA).localeCompare(String(valB), "de", { numeric: true });
+                    }
+
+                    return nextOrder === "asc" ? cmp : -cmp;
+                });
+
+                rows.forEach(row => tbody.appendChild(row));
+            });
+        });
+    });
+});
+</script>

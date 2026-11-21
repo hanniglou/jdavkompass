@@ -1,0 +1,88 @@
+{% extends "base_intern.html" %}
+
+{% block title %}Admin Panel - JDAV Hildesheim{% endblock %}
+
+{% block content %}
+<section class="page-section">
+    <h1>Admin Panel</h1>
+    {% include "admin/_nav.html" %}
+
+    <p style="margin-bottom: 1.25rem;">Wähle einen Verwaltungsbereich aus, um Einstellungen gezielt zu bearbeiten.</p>
+
+    {% set card_btn_style = "display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.5rem 0.95rem; border-radius: 8px; text-decoration: none; font-size: 0.92rem; font-weight: 500; background-color: #f9fafb; color: #374151; border: 1px solid #d1d5db; transition: all 0.15s ease;" %}
+
+    <div style="display: flex; flex-direction: column; gap: 1rem; max-width: 720px;">
+        <div class="form-card" style="margin: 0;">
+            <h3 style="margin-top: 0;">Account Verwaltung</h3>
+            <p>Accounts insgesamt: <strong>{{ accounts_count }}</strong> (offen: <strong>{{ offene_accounts_count }}</strong>)</p>
+            <a href="{{ url_for('admin.admin_accounts') }}" style="{{ card_btn_style }}">
+                Zur Account Verwaltung &rarr;
+            </a>
+        </div>
+
+        <div class="form-card" style="margin: 0;">
+            <h3 style="margin-top: 0;">JuLei Verwaltung</h3>
+            <p>Registrierte Jugendleitende: <strong>{{ juleis_count }}</strong></p>
+            <a href="{{ url_for('admin.admin_juleis') }}" style="{{ card_btn_style }}">
+                Zur JuLei Verwaltung &rarr;
+            </a>
+        </div>
+
+        <div class="form-card" style="margin: 0;">
+            <h3 style="margin-top: 0;">Email Verwaltung</h3>
+            <p>SMTP-Zugangsdaten und Text-/HTML-Vorlagen für E-Mails konfigurieren.</p>
+            <a href="{{ url_for('admin.admin_email') }}" style="{{ card_btn_style }}">
+                Zur Email Verwaltung &rarr;
+            </a>
+        </div>
+
+        <div class="form-card" style="margin: 0;">
+            <h3 style="margin-top: 0;">Export</h3>
+            <p>Anwesenheitslisten einzelner oder mehrerer Gruppen als Excel- oder ZIP-Datei herunterladen (Fallback).</p>
+            <a href="{{ url_for('admin.admin_export') }}" style="{{ card_btn_style }}">
+                Zum Export &rarr;
+            </a>
+        </div>
+
+        <div class="form-card" style="margin: 0;">
+            <h3 style="margin-top: 0; margin-bottom: 0.6rem;">Änderungslog</h3>
+            <details>
+                <summary style="cursor: pointer; font-weight: 600; color: #374151; list-style: revert;">
+                    Letzte Änderungen ein-/ausklappen ({{ log_eintraege|length if log_eintraege else 0 }})
+                </summary>
+
+                <div style="margin-top: 0.85rem;">
+                    {% if log_eintraege %}
+                        <table class="table" style="margin-bottom: 0.9rem;">
+                            <thead>
+                                <tr>
+                                    <th>Zeitpunkt</th>
+                                    <th>Account</th>
+                                    <th>Eintrag</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for entry in log_eintraege[:10] %}
+                                <tr>
+                                    <td>{{ entry.zeitpunkt }}</td>
+                                    <td>{{ entry.account }}</td>
+                                    <td>{{ entry.beschreibung }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    {% else %}
+                        <p style="color: #6b7280; margin: 0 0 0.9rem 0;">
+                            Aktuell sind keine Log-Einträge vorhanden.
+                        </p>
+                    {% endif %}
+
+                    <a href="{{ url_for('admin.admin_log') }}" style="{{ card_btn_style }}">
+                        Vollständigen Änderungslog öffnen &rarr;
+                    </a>
+                </div>
+            </details>
+        </div>
+    </div>
+</section>
+{% endblock %}

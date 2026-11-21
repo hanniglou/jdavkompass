@@ -1,0 +1,247 @@
+{% extends "base_extern.html" %}
+
+{% block title %}Kündigung Jugendgruppe | JDAV Hildesheim{% endblock %}
+
+{% block content %}
+<h1>Kündigung der Jugendgruppen-Teilnahme</h1>
+<p>
+    Bitte fülle dieses Formular aus, um die Teilnahme an einer Jugendgruppe der JDAV Hildesheim zu kündigen.
+    Unsere Kündigungsfrist beträgt <strong>vier Wochen zum Monatsende</strong>.
+</p>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        <div class="flash-messages">
+            {% for category, message in messages %}
+                <div class="flash flash-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        </div>
+    {% endif %}
+{% endwith %}
+
+<form action="{{ url_for('kuendigung.kuendigung') }}" method="POST" id="kuendigung-form">
+    <fieldset>
+        <legend>Teilnehmende Person (Kind)</legend>
+        <label>Vorname:
+            <input type="text" name="mitglied_vorname" value="{{ form_data.get('mitglied_vorname', '') }}" required>
+        </label><br>
+        <label>Nachname:
+            <input type="text" name="mitglied_nachname" value="{{ form_data.get('mitglied_nachname', '') }}" required>
+        </label><br>
+    </fieldset>
+
+    <fieldset>
+        <legend>Erziehungsberechtigte/r</legend>
+        <label>Vorname:
+            <input type="text" name="eb_vorname" value="{{ form_data.get('eb_vorname', '') }}" required>
+        </label><br>
+        <label>Nachname:
+            <input type="text" name="eb_nachname" value="{{ form_data.get('eb_nachname', '') }}" required>
+        </label><br>
+        <label>E-Mail-Adresse (für Eingangsbestätigung):
+            <input type="email" name="eb_email" value="{{ form_data.get('eb_email', '') }}" required>
+        </label><br>
+    </fieldset>
+
+    <fieldset style="text-align: left;">
+        <legend>Kündigungsdatum</legend>
+        <p style="text-align: left;">Es gilt eine Kündigungsfrist von vier Wochen zum Monatsende.</p>
+
+        <div style="text-align: left; margin-bottom: 0.6rem;">
+            <input type="radio" id="radio-fruehestmoeglich" name="kuendigungsart" value="fruehestmoeglich"
+                style="display: inline-block; width: auto; vertical-align: middle; margin: 0 0.4rem 0 0;"
+                {% if form_data.get('kuendigungsart', 'fruehestmoeglich') == 'fruehestmoeglich' %}checked{% endif %}>
+            <label for="radio-fruehestmoeglich" style="display: inline; font-weight: normal; cursor: pointer;">
+                Frühestmöglich (zum {{ optionen.fruehestmoeglich_de }})
+            </label>
+        </div>
+
+        <div style="text-align: left; margin-bottom: 0.6rem;">
+            <input type="radio" id="radio-quartalsende" name="kuendigungsart" value="quartalsende"
+                style="display: inline-block; width: auto; vertical-align: middle; margin: 0 0.4rem 0 0;"
+                {% if form_data.get('kuendigungsart') == 'quartalsende' %}checked{% endif %}>
+            <label for="radio-quartalsende" style="display: inline; font-weight: normal; cursor: pointer;">
+                Zum Quartalsende (zum {{ optionen.quartalsende_de }})
+            </label>
+        </div>
+
+        <div style="text-align: left; margin-bottom: 0.4rem;">
+            <input type="radio" id="radio-monatsende" name="kuendigungsart" value="monatsende"
+                style="display: inline-block; width: auto; vertical-align: middle; margin: 0 0.4rem 0 0;"
+                {% if form_data.get('kuendigungsart') == 'monatsende' %}checked{% endif %}>
+            <label for="radio-monatsende" style="display: inline; font-weight: normal; cursor: pointer;">
+                Zum gewählten Monatsende:
+            </label>
+            <select name="eigenes_datum" id="select-monatsende"
+                style="display: inline-block; width: auto; vertical-align: middle; margin: 0 0 0 0.4rem;">
+                {% for m in optionen.monatsenden %}
+                    <option value="{{ m.iso }}"
+                        {% if form_data.get('eigenes_datum') == m.iso %}selected{% endif %}>
+                        {{ m.de }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+    </fieldset>
+
+    <fieldset>
+        <legend>DAV-Sektionsmitgliedschaft</legend>
+        <label>
+            <input type="checkbox" name="dav_sektion_kuendigen" id="dav-sektion-checkbox"
+                {% if form_data.get('dav_sektion_kuendigen') %}checked{% endif %}>
+            Ebenfalls Kündigung der Mitgliedschaft in der DAV-Sektion?
+        </label>
+
+        <div id="dav-sektion-hinweis" style="display: none; margin-top: 0.75rem; padding: 0.75rem; border: 1px solid #d97706; background: #fffbeb; border-radius: 6px;">
+            <p>
+                <strong>Wichtiger Hinweis:</strong> Dieses Formular gilt ausschließlich für die Jugendgruppe der JDAV Hildesheim
+                und <strong>gilt explizit nicht</strong> als Kündigung Deiner Mitgliedschaft in der DAV-Sektion Hildesheim.
+                Eine Kündigung der Sektionsmitgliedschaft muss gesondert schriftlich (postalisch oder per E-Mail an
+                <a href="mailto:info@dav-hildesheim.de">info@dav-hildesheim.de</a>) erfolgen. Hierfür können andere Fristen
+                und Kündigungsbedingungen gelten.
+            </p>
+            <label>
+                <input type="checkbox" name="dav_hinweis_bestaetigt" id="dav-hinweis-bestaetigt"
+                    {% if form_data.get('dav_hinweis_bestaetigt') %}checked{% endif %}>
+                Ich habe verstanden, dass dies nicht als Kündigung der DAV-Sektionsmitgliedschaft gilt und ich diese ggf. separat an die DAV-Sektion richten muss.
+            </label>
+        </div>
+    </fieldset>
+
+    <fieldset>
+        <legend>Grund der Kündigung (optional)</legend>
+        <label>
+            <textarea name="grund" rows="4" style="width: 100%; max-width: 700px;" placeholder="Möchtest Du uns den Grund für die Kündigung mitteilen? (freiwillig)">{{ form_data.get('grund', '') }}</textarea>
+        </label>
+    </fieldset>
+
+    <fieldset>
+        <legend>Datenschutz &amp; Unterschrift *Pflichtfeld</legend>
+        <p style="font-size: 0.92rem;">
+            Auf Grundlage von Artikel 6 Abs. 1 f der Europäischen Datenschutz-Grundverordnung verarbeiten wir Deine
+            persönlichen Daten wie Name der teilnehmenden Person, Name der erziehungsberechtigten Person,
+            E-Mail-Adresse sowie Angaben zur Kündigung und Unterschrift. Wenn Du dies nicht wünschst, kannst Du
+            jederzeit bei uns der Verwendung Deiner Daten grundsätzlich oder für bestimmte Zwecke widersprechen.
+            Bitte melde Dich dazu per Mail an <a href="mailto:jugend@jdav-hildesheim.de">jugend@jdav-hildesheim.de</a>.
+            Weitere Informationen findest Du in unserer
+            <a href="{{ url_for('index.download', file='Datenschutzerklärung.pdf') }}">Datenschutzerklärung</a>.
+        </p>
+
+        <label>
+            <input type="checkbox" name="datenschutz_bestaetigt" required
+                {% if form_data.get('datenschutz_bestaetigt') %}checked{% endif %}>
+            Ich habe die Datenschutzhinweise zur Kenntnis genommen und bin mit der Verarbeitung meiner Daten zur Bearbeitung der Kündigung einverstanden.
+        </label><br>
+
+        <label>
+            <input type="checkbox" name="richtigkeit_bestaetigt" required
+                {% if form_data.get('richtigkeit_bestaetigt') %}checked{% endif %}>
+            Ich bestätige die Richtigkeit meiner Angaben.
+        </label><br>
+
+        <label>
+            Im unteren Feld kann eine Unterschrift entweder per Maus oder per Finger gegeben werden. Mit der digitalen Unterschrift bestätige ich die Kündigung und die ausgewählten Optionen.
+        </label><br>
+
+        <canvas id="signature-pad" style="border: 1px solid #ccc;"></canvas><br>
+        <button type="button" onclick="clearSignature()">Unterschrift löschen</button>
+        <input type="hidden" name="unterschrift" id="unterschrift">
+    </fieldset>
+
+    <button type="submit" class="btn-submit">Kündigung absenden</button>
+</form>
+
+<script>
+    const davCheckbox = document.getElementById("dav-sektion-checkbox");
+    const davHinweisBox = document.getElementById("dav-sektion-hinweis");
+    const davBestaetigtCheckbox = document.getElementById("dav-hinweis-bestaetigt");
+    const radioMonatsende = document.getElementById("radio-monatsende");
+    const selectMonatsende = document.getElementById("select-monatsende");
+
+    function updateDavHinweis() {
+        const aktiv = davCheckbox.checked;
+        davHinweisBox.style.display = aktiv ? "block" : "none";
+        davBestaetigtCheckbox.required = aktiv;
+        if (!aktiv) {
+            davBestaetigtCheckbox.checked = false;
+        }
+    }
+
+    davCheckbox.addEventListener("change", updateDavHinweis);
+    updateDavHinweis();
+
+    selectMonatsende.addEventListener("change", () => {
+        radioMonatsende.checked = true;
+    });
+
+    const canvas = document.getElementById("signature-pad");
+    canvas.style.touchAction = "none";
+    const ctx = canvas.getContext("2d");
+    const hiddenInput = document.getElementById("unterschrift");
+    const form = document.getElementById("kuendigung-form");
+    let isDrawing = false;
+    let hasSigned = false;
+
+    function resizeCanvas() {
+        const rect = canvas.getBoundingClientRect();
+        canvas.width = rect.width;
+        canvas.height = rect.height;
+        ctx.lineWidth = 2;
+        ctx.lineCap = "round";
+        ctx.strokeStyle = "#000";
+    }
+
+    window.addEventListener("load", resizeCanvas);
+    window.addEventListener("resize", resizeCanvas);
+
+    function getPosition(event) {
+        const rect = canvas.getBoundingClientRect();
+        return { x: event.clientX - rect.left, y: event.clientY - rect.top };
+    }
+
+    canvas.addEventListener("pointerdown", (e) => {
+        if (!canvas.width || !canvas.height) {
+            resizeCanvas();
+        }
+        isDrawing = true;
+        hasSigned = true;
+        ctx.lineWidth = 2;
+        ctx.lineCap = "round";
+        ctx.strokeStyle = "#000";
+        const pos = getPosition(e);
+        ctx.beginPath();
+        ctx.moveTo(pos.x, pos.y);
+    });
+
+    canvas.addEventListener("pointermove", (e) => {
+        if (!isDrawing) return;
+        const pos = getPosition(e);
+        ctx.lineTo(pos.x, pos.y);
+        ctx.stroke();
+    });
+
+    canvas.addEventListener("pointerup", () => {
+        isDrawing = false;
+        hiddenInput.value = canvas.toDataURL();
+    });
+
+    canvas.addEventListener("pointerleave", () => {
+        isDrawing = false;
+    });
+
+    function clearSignature() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        hiddenInput.value = "";
+        hasSigned = false;
+    }
+
+    form.addEventListener("submit", function(e) {
+        if (!hasSigned) {
+            e.preventDefault();
+            alert("Bitte unterschreibe im vorgesehenen Feld.");
+        } else {
+            hiddenInput.value = canvas.toDataURL();
+        }
+    });
+</script>
+{% endblock %}

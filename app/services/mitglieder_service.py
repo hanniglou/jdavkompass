@@ -1,4 +1,17 @@
+from datetime import date, datetime
+
 from app.models import get_kompass
+from app.services.mail_service import (
+    hole_adressbuch_eintraege,
+    sende_interne_kuendigungs_info,
+    sende_kuendigungsbestaetigung,
+)
+
+
+def _ensure_archiviert_spalte(conn):
+    cols = [r[1] for r in conn.execute("PRAGMA table_info(mitglieder)").fetchall()]
+    if "archiviert" not in cols:
+        conn.execute("ALTER TABLE mitglieder ADD COLUMN archiviert INTEGER NOT NULL DEFAULT 0")
 
 
 def get_unapproved_mitglieder_daten():
@@ -38,7 +51,8 @@ def get_unapproved_mitglieder_daten():
                 LEFT JOIN erziehungsberechtigte_unapproved e ON me.erziehungsberechtigter_id = e.id
             ORDER BY
                 m.nachname
-            """)
+            """
+        )
 
         rows = cursor.fetchall()
 
@@ -99,7 +113,7 @@ def delete_unapproved(mitglied_id):
             WHERE
                 id = ?
             """,
-            (adresse_id,)
+            (adresse_id,),
         )
         cursor.execute(
             """
@@ -107,7 +121,7 @@ def delete_unapproved(mitglied_id):
             WHERE
                 id = ?
             """,
-            (mitglied_id,)
+            (mitglied_id,),
         )
 
 
@@ -312,9 +326,14 @@ def approve(mitglied_id):
 
 def get_mitglieder_daten(mitglied_id=None, unterschrift=False):
     with get_kompass() as conn:
+        _ensure_archiviert_spalte(conn)
         cursor = conn.cursor()
 
-        select_fields = "m.id, m.vorname, m.nachname, m.geburtsdatum, m.geschlecht, m.adresse_id, m.mitgliedsnummer"
+        select_fields = (
+            "m.id, m.vorname, m.nachname, m.geburtsdatum, m.geschlecht, "
+            "m.adresse_id, m.mitgliedsnummer, m.kuendigung_datum, "
+            "m.kuendigung_vorgangsnummer, COALESCE(m.archiviert, 0) AS archiviert"
+        )
         if unterschrift:
             select_fields += ", m.unterschrift"
         sql = f"""
@@ -386,6 +405,56 @@ def get_mitglieder_daten(mitglied_id=None, unterschrift=False):
     return mitglieder_daten
 
 
+def _parse_iso_datum(wert):
+    if not wert:
+        return None
+    text = str(wert).strip()[:10]
+    try:
+        teile = text.split("-")
+        if len(teile) == 3:
+            return date(int(teile[0]), int(teile[1]), int(teile[2]))
+    except (ValueError, TypeError):
+        return None
+    return None
+
+
+def _quartal_index(d: date) -> int:
+    return d.year * 4 + (d.month - 1) // 3
+
+
+def get_mitglieder_und_archiv():
+    alle_mitglieder = get_mitglieder_daten()
+    heute_datum = date.today()
+    aktuelles_quartal = _quartal_index(heute_datum)
+
+    aktive_mitglieder = []
+    archiv_mitglieder = []
+
+    for m in alle_mitglieder:
+        ist_direkt_archiviert = bool(m.get("archiviert"))
+        k_datum = _parse_iso_datum(m.get("kuendigung_datum"))
+
+        m_angereichert = {
+            **m,
+            "kuendigung_datum_de": k_datum.strftime("%d.%m.%Y") if k_datum else None,
+            "ist_direkt_archiviert": ist_direkt_archiviert,
+        }
+
+        if ist_direkt_archiviert:
+            archiv_mitglieder.append(m_angereichert)
+            continue
+
+        if k_datum is not None:
+            kuendigung_quartal = _quartal_index(k_datum)
+            if (aktuelles_quartal - kuendigung_quartal) >= 2:
+                archiv_mitglieder.append(m_angereichert)
+                continue
+
+        aktive_mitglieder.append(m_angereichert)
+
+    return aktive_mitglieder, archiv_mitglieder
+
+
 def update_mitglied(mitglied_id, bearbeiten_form_data):
     vorname = bearbeiten_form_data.get("vorname")
     nachname = bearbeiten_form_data.get("nachname")
@@ -401,23 +470,39 @@ def update_mitglied(mitglied_id, bearbeiten_form_data):
     eb_nachname = bearbeiten_form_data.get("eb_nachname")
     eb_email = bearbeiten_form_data.get("eb_email")
     eb_telefon = bearbeiten_form_data.get("eb_telefon")
+
     with get_kompass() as conn:
         cursor = conn.cursor()
 
-        cursor.execute(
-            """
-            UPDATE mitglieder
-            SET
-                vorname = ?,
-                nachname = ?,
-                geburtsdatum = ?,
-                geschlecht = ?,
-                mitgliedsnummer = ?
-            WHERE
-                id = ?
-            """,
-            (vorname, nachname, geburtsdatum, geschlecht, mitgliedsnummer, mitglied_id),
-        )
+        if geschlecht is not None:
+            cursor.execute(
+                """
+                UPDATE mitglieder
+                SET
+                    vorname = ?,
+                    nachname = ?,
+                    geburtsdatum = ?,
+                    geschlecht = ?,
+                    mitgliedsnummer = ?
+                WHERE
+                    id = ?
+                """,
+                (vorname, nachname, geburtsdatum, geschlecht, mitgliedsnummer, mitglied_id),
+            )
+        else:
+            cursor.execute(
+                """
+                UPDATE mitglieder
+                SET
+                    vorname = ?,
+                    nachname = ?,
+                    geburtsdatum = ?,
+                    mitgliedsnummer = ?
+                WHERE
+                    id = ?
+                """,
+                (vorname, nachname, geburtsdatum, mitgliedsnummer, mitglied_id),
+            )
 
         cursor.execute(
             """
@@ -440,22 +525,186 @@ def update_mitglied(mitglied_id, bearbeiten_form_data):
             (strasse, hausnummer, plz, ort, mitglied_id),
         )
 
-        cursor.execute(
+        if eb_id:
+            cursor.execute(
+                """
+                UPDATE erziehungsberechtigte
+                SET
+                    vorname = ?,
+                    nachname = ?,
+                    email = ?,
+                    telefon = ?
+                WHERE
+                    id = ?
+                """,
+                (
+                    eb_vorname,
+                    eb_nachname,
+                    eb_email,
+                    eb_telefon,
+                    eb_id,
+                ),
+            )
+
+
+def manuelle_kuendigung_erfassen(
+    mitglied_id: int,
+    kuendigung_datum_raw: str,
+    sende_bestaetigung: bool = False,
+    adressbuch_ids_raw: list[str] | None = None,
+    bearbeiter_name: str = "",
+) -> dict:
+    k_datum = _parse_iso_datum(kuendigung_datum_raw)
+    if k_datum is None:
+        raise ValueError("Bitte ein gültiges Kündigungsdatum angeben.")
+
+    k_datum_iso = k_datum.isoformat()
+    k_datum_de = k_datum.strftime("%d.%m.%Y")
+    jetzt_dt = datetime.now()
+    jetzt_str = jetzt_dt.strftime("%Y-%m-%d %H:%M:%S")
+    jetzt_de = jetzt_dt.strftime("%d.%m.%Y %H:%M")
+    quartal_nr = (k_datum.month - 1) // 3 + 1
+    vorgangsnummer = (
+        f"{k_datum.strftime('%y')}-{quartal_nr}-M{mitglied_id}-{jetzt_dt.strftime('%H%M%S')}"
+    )
+
+    with get_kompass() as conn:
+        _ensure_archiviert_spalte(conn)
+        row = conn.execute(
             """
-            UPDATE erziehungsberechtigte
-            SET
-                vorname = ?,
-                nachname = ?,
-                email = ?,
-                telefon = ?
-            WHERE
-                id = ?
+            SELECT
+                m.id, m.vorname, m.nachname, m.geburtsdatum, m.mitgliedsnummer,
+                e.vorname AS eb_vorname, e.nachname AS eb_nachname, e.email AS eb_email
+            FROM mitglieder m
+            LEFT JOIN mitglied_erziehungsberechtigte me ON m.id = me.mitglied_id
+            LEFT JOIN erziehungsberechtigte e ON me.erziehungsberechtigter_id = e.id
+            WHERE m.id = ?
+            LIMIT 1
             """,
-            (
-                eb_vorname,
-                eb_nachname,
-                eb_email,
-                eb_telefon,
-                eb_id,
-            ),
+            (mitglied_id,),
+        ).fetchone()
+
+        if not row:
+            raise ValueError("Das ausgewählte Mitglied wurde nicht gefunden.")
+
+        m_data = dict(row)
+
+        conn.execute(
+            """
+            UPDATE mitglieder
+            SET kuendigung_datum = ?,
+                kuendigung_vorgangsnummer = ?,
+                archiviert = 0
+            WHERE id = ?
+            """,
+            (k_datum_iso, vorgangsnummer, mitglied_id),
         )
+
+        tabellen = [
+            r[0]
+            for r in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='kuendigungen'"
+            ).fetchall()
+        ]
+        if tabellen:
+            conn.execute(
+                """
+                INSERT INTO kuendigungen (
+                    erstellt_am, mitglied_vorname, mitglied_nachname,
+                    eb_vorname, eb_nachname, eb_email,
+                    kuendigungsart, kuendigungsdatum, dav_sektion_kuendigen,
+                    grund, status, vorgangsnummer, bestaetigt_am,
+                    bestaetigt_von, bestaetigung_gesendet
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'bestaetigt', ?, ?, ?, ?)
+                """,
+                (
+                    jetzt_str,
+                    m_data.get("vorname"),
+                    m_data.get("nachname"),
+                    m_data.get("eb_vorname") or "",
+                    m_data.get("eb_nachname") or "",
+                    m_data.get("eb_email") or "",
+                    "manuell",
+                    k_datum_iso,
+                    1,
+                    "Manuell im Mitgliedermanagement erfasst",
+                    vorgangsnummer,
+                    jetzt_str,
+                    bearbeiter_name or None,
+                    1 if sende_bestaetigung else 0,
+                ),
+            )
+
+        conn.commit()
+
+    mail_daten = {
+        "vorgangsnummer": vorgangsnummer,
+        "mitglied_vorname": m_data.get("vorname") or "",
+        "mitglied_nachname": m_data.get("nachname") or "",
+        "eb_vorname": m_data.get("eb_vorname") or "",
+        "eb_nachname": m_data.get("eb_nachname") or "",
+        "eb_email": (m_data.get("eb_email") or "").strip(),
+        "kuendigungsart": "manuell",
+        "kuendigungsart_label": "Manuell erfasst (außerordentlich / rückwirkend möglich)",
+        "kuendigungsdatum": k_datum_iso,
+        "kuendigungsdatum_de": k_datum_de,
+        "erstellt_am": jetzt_str,
+        "erstellt_am_de": jetzt_de,
+        "dav_sektion_kuendigen": 1,
+        "grund": "Manuell im Mitgliedermanagement erfasst",
+    }
+
+    bestaetigung_gesendet = False
+    if sende_bestaetigung and mail_daten["eb_email"]:
+        sende_kuendigungsbestaetigung(mail_daten, freitext="")
+        bestaetigung_gesendet = True
+
+    selected_ids = set()
+    for raw_id in adressbuch_ids_raw or []:
+        try:
+            selected_ids.add(int(raw_id))
+        except (TypeError, ValueError):
+            continue
+
+    ausgewaehlte_empfaenger = [
+        e for e in hole_adressbuch_eintraege() if e.get("aktiv") and e.get("id") in selected_ids
+    ]
+    interne_mails_gesendet = 0
+    if ausgewaehlte_empfaenger:
+        interne_mails_gesendet = sende_interne_kuendigungs_info(
+            ausgewaehlte_empfaenger,
+            mail_daten,
+            freitext="",
+        )
+
+    return {
+        "vorgangsnummer": vorgangsnummer,
+        "kuendigung_datum_de": k_datum_de,
+        "bestaetigung_gesendet": bestaetigung_gesendet,
+        "interne_mails_gesendet": interne_mails_gesendet,
+    }
+
+
+def setze_mitglied_archiviert(mitglied_id: int, archiviert: bool) -> dict:
+    zielwert = 1 if archiviert else 0
+    with get_kompass() as conn:
+        _ensure_archiviert_spalte(conn)
+        row = conn.execute(
+            "SELECT id, vorname, nachname FROM mitglieder WHERE id = ?",
+            (mitglied_id,),
+        ).fetchone()
+        if not row:
+            raise ValueError("Das ausgewählte Mitglied wurde nicht gefunden.")
+
+        conn.execute(
+            "UPDATE mitglieder SET archiviert = ? WHERE id = ?",
+            (zielwert, mitglied_id),
+        )
+        conn.commit()
+
+    return {
+        "id": row["id"],
+        "vorname": row["vorname"],
+        "nachname": row["nachname"],
+        "archiviert": bool(zielwert),
+    }

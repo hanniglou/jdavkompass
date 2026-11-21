@@ -18,9 +18,10 @@ from .routes.gruppen import gruppen_bp
 from .routes.gruppe import gruppe_bp
 from .routes.index import index_bp
 from .routes.mitglieder import mitglieder_bp
-from app.routes.mitglieder_freigeben import mitglieder_freigeben_bp
+from .routes.mitglieder_freigeben import mitglieder_freigeben_bp
 from .routes.profile import profile_bp
 from .routes.api import api_bp
+from .routes.kuendigung import kuendigung_bp
 
 login_manager = LoginManager()
 login_manager.login_view = "auth.login"
@@ -197,5 +198,6 @@ def create_app():
     app.register_blueprint(profile_bp)
     app.register_blueprint(index_bp)
     app.register_blueprint(api_bp)
-
+    app.register_blueprint(kuendigung_bp)
+    
     return app
