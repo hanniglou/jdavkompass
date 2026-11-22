@@ -10,8 +10,8 @@
     <div class="table-container">
         <h3>Accounts</h3>
 
-        <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem; align-items: center;">
-            <select id="account-filter-col" class="minimal-select" style="width: auto;">
+        <div class="table-filter-toolbar">
+            <select id="account-filter-col" class="minimal-select">
                 <option value="all">Alle Spalten</option>
                 <option value="0">ID</option>
                 <option value="1">Benutzername</option>
@@ -19,9 +19,8 @@
                 <option value="3">Status</option>
                 <option value="4">Rolle</option>
             </select>
-            <input type="text" id="account-filter-input" placeholder="Nach Begriff filtern..."
-                   style="max-width: 280px; margin: 0;">
-            <button type="button" id="account-filter-reset" class="btn btn-secondary" style="width: auto;">
+            <input type="text" id="account-filter-input" class="table-filter-input" placeholder="Nach Begriff filtern...">
+            <button type="button" id="account-filter-reset" class="btn-kompass btn-kompass--secondary-light">
                 Zurücksetzen
             </button>
         </div>
@@ -51,7 +50,7 @@
                             <input type="hidden" name="account_id" value="{{ acc.id }}">
 
                             {% if acc.status == "pending" %}
-                            <button type="submit" name="action" value="approve" class="btn-submit">
+                            <button type="submit" name="action" value="approve" class="btn-kompass btn-kompass--success">
                                 Freischalten
                             </button>
                             {% else %}
@@ -63,24 +62,22 @@
                                 {% endfor %}
                             </select>
 
-                            <button type="submit" name="action" value="change_role" class="btn-submit">
+                            <button type="submit" name="action" value="change_role" class="btn-kompass btn-kompass--success">
                                 Speichern
                             </button>
                             {% endif %}
 
                             <button
-                                type="submit"
-                                name="action"
-                                value="delete"
-                                class="btn-delete"
-                                onclick="return confirm('Diesen Account endgültig löschen?');"
+                                type="button"
+                                class="btn-kompass btn-kompass--danger"
+                                onclick="confirmAccountDelete(this.form, '{{ acc.anzeigename or acc.uname }}')"
                             >
                                 Löschen
                             </button>
                         </form>
                         {% else %}
                         <span class="text-muted">
-                            Admin-Accounts können nicht geändert werden
+                            Admin-Accounts sind unantastbar (kein Selbst-Abschuss)
                         </span>
                         {% endif %}
                     </td>
@@ -92,6 +89,23 @@
 </section>
 
 <script>
+function confirmAccountDelete(formEl, name) {
+    window.KompassModal.open({
+        title: "Account löschen?",
+        message: `Soll der Account von ${name} wirklich endgültig gelöscht werden?`,
+        submitText: "Endgültig löschen",
+        cancelText: "Behalten",
+        onConfirm: () => {
+            const hidden = document.createElement("input");
+            hidden.type = "hidden";
+            hidden.name = "action";
+            hidden.value = "delete";
+            formEl.appendChild(hidden);
+            formEl.submit();
+        }
+    });
+}
+
 document.addEventListener("DOMContentLoaded", function () {
     const colSelect = document.getElementById("account-filter-col");
     const searchInput = document.getElementById("account-filter-input");

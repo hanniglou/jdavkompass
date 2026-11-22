@@ -1,0 +1,131 @@
+{% macro kompass_confirm_modal(
+    modal_id="kompass-confirm-modal",
+    title_id="kompass-modal-title",
+    text_id="kompass-modal-text",
+    confirm_box_id="kompass-modal-confirm-box",
+    label_id="kompass-modal-label",
+    input_id="kompass-modal-input",
+    hint_id="kompass-modal-hint",
+    cancel_btn_id="kompass-modal-cancel",
+    submit_btn_id="kompass-modal-submit",
+    submit_label="Endgültig löschen",
+    cancel_label="Behalten"
+) -%}
+<div id="{{ modal_id }}" class="kompass-modal-backdrop" onclick="if (event.target === this) window.KompassModal && window.KompassModal.close();">
+    <div role="dialog" aria-modal="true" aria-labelledby="{{ title_id }}" class="kompass-modal-dialog">
+        <h4 id="{{ title_id }}" class="kompass-modal-title">Aktion bestätigen?</h4>
+        <p id="{{ text_id }}" class="kompass-modal-text"></p>
+
+        <div id="{{ confirm_box_id }}" class="kompass-modal-confirm-box" style="display: none;">
+            <label id="{{ label_id }}" for="{{ input_id }}" class="kompass-modal-label"></label>
+            <input type="text" id="{{ input_id }}" autocomplete="off" class="kompass-modal-input">
+            <small id="{{ hint_id }}" class="kompass-modal-hint"></small>
+        </div>
+
+        <div class="kompass-modal-actions">
+            <button type="button" id="{{ cancel_btn_id }}" class="btn-kompass btn-kompass--secondary-light">{{ cancel_label }}</button>
+            <button type="button" id="{{ submit_btn_id }}" class="btn-kompass btn-kompass--danger">{{ submit_label }}</button>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    if (window.KompassModal) return;
+
+    let currentConfig = null;
+
+    const backdrop = document.getElementById("{{ modal_id }}");
+    const titleEl = document.getElementById("{{ title_id }}");
+    const textEl = document.getElementById("{{ text_id }}");
+    const boxEl = document.getElementById("{{ confirm_box_id }}");
+    const labelEl = document.getElementById("{{ label_id }}");
+    const inputEl = document.getElementById("{{ input_id }}");
+    const hintEl = document.getElementById("{{ hint_id }}");
+    const cancelBtn = document.getElementById("{{ cancel_btn_id }}");
+    const submitBtn = document.getElementById("{{ submit_btn_id }}");
+
+    function evaluateState() {
+        if (!currentConfig || !submitBtn) return;
+        const reqWord = (currentConfig.confirmWord || "").trim().toLowerCase();
+        if (!reqWord) {
+            submitBtn.disabled = false;
+            submitBtn.classList.remove("is-disabled");
+            return;
+        }
+        const typed = (inputEl?.value || "").trim().toLowerCase();
+        const ok = typed === reqWord;
+        submitBtn.disabled = !ok;
+        submitBtn.classList.toggle("is-disabled", !ok);
+        if (hintEl) {
+            hintEl.classList.remove("kompass-modal-hint--ok", "kompass-modal-hint--err");
+            if (ok) {
+                hintEl.textContent = "Bestätigung erkannt – du kannst jetzt fortfahren.";
+                hintEl.classList.add("kompass-modal-hint--ok");
+            } else {
+                hintEl.textContent = `Tippe „${currentConfig.confirmWord}“, um den Button freizuschalten.`;
+            }
+        }
+    }
+
+    function closeModal() {
+        if (backdrop) backdrop.classList.remove("is-open");
+        currentConfig = null;
+        if (inputEl) inputEl.value = "";
+    }
+
+    function openModal(opts) {
+        currentConfig = opts || {};
+        if (titleEl) titleEl.textContent = currentConfig.title || "Aktion bestätigen?";
+        if (textEl) textEl.textContent = currentConfig.message || "";
+        if (submitBtn) submitBtn.textContent = currentConfig.submitText || "{{ submit_label }}";
+        if (cancelBtn) cancelBtn.textContent = currentConfig.cancelText || "{{ cancel_label }}";
+
+        const reqWord = (currentConfig.confirmWord || "").trim();
+        if (boxEl) {
+            boxEl.style.display = reqWord ? "block" : "none";
+        }
+        if (reqWord) {
+            if (labelEl) {
+                labelEl.innerHTML = `Zur Bestätigung bitte <strong>${reqWord}</strong> eingeben:`;
+            }
+            if (inputEl) {
+                inputEl.placeholder = reqWord;
+                inputEl.value = "";
+            }
+        }
+        evaluateState();
+        if (backdrop) backdrop.classList.add("is-open");
+        if (reqWord && inputEl) {
+            setTimeout(() => inputEl.focus(), 10);
+        }
+    }
+
+    if (cancelBtn) cancelBtn.addEventListener("click", closeModal);
+    if (inputEl) {
+        inputEl.addEventListener("input", evaluateState);
+        inputEl.addEventListener("keydown", (e) => {
+            if (e.key === "Enter" && !submitBtn.disabled) {
+                e.preventDefault();
+                submitBtn.click();
+            }
+        });
+    }
+    if (submitBtn) {
+        submitBtn.addEventListener("click", () => {
+            if (!currentConfig || submitBtn.disabled) return;
+            const cb = currentConfig.onConfirm;
+            closeModal();
+            if (typeof cb === "function") cb();
+        });
+    }
+    document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && backdrop && backdrop.classList.contains("is-open")) {
+            closeModal();
+        }
+    });
+
+    window.KompassModal = { open: openModal, close: closeModal };
+})();
+</script>
+{%- endmacro %}

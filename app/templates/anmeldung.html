@@ -54,12 +54,12 @@
         <legend>Jugendgruppenbeiträge</legend>
         <p>Neben der Mitgliedschaft im DAV Sektion Hildesheim erfordert die Teilnahme an einer Jugendgruppe eine monatliche Teilnahmegebühr, welche sich aus einem Betreuungsgeld und dem Jugendgruppeneintrittsgeld zusammen setzt und quartalsweise eingezogen wird. Es besteht die Möglichkeit bei den ersten zwei Termine zu schnuppern, ohne das eine Mitgliedschaft oder ein Beitrag fällig ist. Die Mitgliedschaft einer Jugendgruppe ist monatlich kündbar, dazu melden Sie sich bei jugend@jdav-hildesheim.de per Email.</p>
         <br>
-        <h4>Betreuungsgeld: (gültig ab dem 1.3.2026)</h4>
+        <h3>Betreuungsgeld: (gültig ab dem 1.3.2026)</h3>
         <p>Jugendgruppe 1,5h: 19€</p>
         <p>Boudergruppe 1h: 16€</p>
         <p>Mini Gruppe 1h: 19€</p>
         <p>Inklusive Gruppe 14 tägig: 14€</p>
-        <h4>Jugendgruppeneintrittspreis: (gültig ab dem 1.02.2024)</h4>
+        <h3>Jugendgruppeneintrittspreis: (gültig ab dem 1.02.2024)</h3>
         <p>Kinder bis 14 Jahren: 13,50€</p>
         <p>Jugendliche ab 14 Jahren: 25€</p>
         <p>Für die Inklusive Gruppe wird kein Eintritt fällig</p>
@@ -75,21 +75,21 @@
             Im unteren Feld kann eine Unterschrift endweder per Maus oder per Finger gegeben werden.
         </label>
         <label>
-            <input type="checkbox" name="datenschutz_bestaetigt" required>Ich habe die <a href="{{ url_for('index.download', file='Datenschutzerklärung.pdf') }}">Datenschutzerklärung</a> gelesen und bin mit der digitalen Datenvereinbarung einverstanden 
+            <input type="checkbox" name="datenschutz_bestaetigt" required>Ich habe die <a href="{{ url_for('index.download', file='Datenschutzerklärung.pdf') }}">Datenschutzerklärung</a> gelesen und bin mit der digitalen Datenvereinbarung einverstanden
         </label>
         <label>
             <input type="checkbox" name="bilder_bestaetigt">Während der Jugendgruppe dürfen von der teilnehmenden Personen Bild und Videomaterial aufgenommen werden und auf den Vereinsmedien der JDAV (Vereinszeitschrift, Socialmedia) veröffentlicht werden.
         </label>
         <label>
-            <input type="checkbox" name="richtigkeit_bestaetigt" required>Ich bestätige die Richtigkeit meiner Angaben 
+            <input type="checkbox" name="richtigkeit_bestaetigt" required>Ich bestätige die Richtigkeit meiner Angaben
         </label>
         <label>Mit einer digitalen Unterschrift und dem Anmelden einer teilnehmenden Person bestätige ich die Auswahl der folgenden Optionen</label>
-        <canvas id="signature-pad" style="border: 1px solid #ccc;"></canvas><br>
-        <button type="button" onclick="clearSignature()">Unterschrift löschen</button>
+        <canvas id="signature-pad"></canvas><br>
+        <button type="button" class="btn-kompass btn-kompass--secondary-light" onclick="clearSignature()">Unterschrift löschen</button>
         <input type="hidden" name="unterschrift" id="unterschrift">
     </fieldset>
 
-    <button type="submit" class="btn-submit">Teilnehmer anmelden</button>
+    <button type="submit" class="btn-kompass btn-kompass--success">Teilnehmer anmelden</button>
 </form>
 
 <script>

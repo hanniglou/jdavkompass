@@ -4,10 +4,10 @@
 
 {% block content %}
 <section class="page-section">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-        <h1>Mitglieder freigeben</h1>
-        <a href="{{ url_for('mitglieder.mitglieder') }}" class="btn btn-primary" style="text-decoration: none;">
-            Zur Mitgliederübersicht
+    <h1>Mitglieder freigeben</h1>
+    <div class="back-link-row">
+        <a href="{{ url_for('mitglieder.mitglieder') }}" class="back-link" onclick="event.preventDefault(); window.KompassNav.goBack(this.href);">
+            &larr; Zurück zur Mitgliederübersicht
         </a>
     </div>
 
@@ -43,7 +43,7 @@
                     </td>
                     <td>
                         {% if mitglied.unterschrift %}
-                            <img src="{{ mitglied.unterschrift }}" style="max-width:200px; border:1px solid #ccc;">
+                            <img src="{{ mitglied.unterschrift }}" alt="Unterschrift" class="signature-preview">
                         {% else %}
                             Keine
                         {% endif %}
@@ -56,10 +56,14 @@
                         {% endif %}
                     </td>
                     <td>
-                        <form action="{{ url_for('mitglieder_freigeben.mitglieder_freigeben') }}" method="POST" style="display:flex; flex-direction:column; gap:5px;">
+                        <form action="{{ url_for('mitglieder_freigeben.mitglieder_freigeben') }}" method="POST" class="action-stack">
                             <input type="hidden" name="mitglied_id" value="{{ mitglied.id }}">
-                            <button type="submit" name="action" value="approve" class="btn btn-success">Genehmigen</button>
-                            <button type="submit" name="action" value="reject" class="btn btn-remove">Ablehnen</button>
+                            <button type="submit" name="action" value="approve" class="btn-kompass btn-kompass--success">Genehmigen</button>
+                            <button type="button"
+                                    class="btn-kompass btn-kompass--danger"
+                                    onclick="openRejectModal(this.form, '{{ mitglied.vorname }} {{ mitglied.nachname }}')">
+                                Ablehnen
+                            </button>
                         </form>
                     </td>
                 </tr>
@@ -75,6 +79,23 @@
 </section>
 
 <script>
+function openRejectModal(formEl, name) {
+    window.KompassModal.open({
+        title: "Antrag ablehnen?",
+        message: `Soll der Mitgliedsantrag von ${name} wirklich abgelehnt und gelöscht werden?`,
+        submitText: "Endgültig ablehnen",
+        cancelText: "Behalten",
+        onConfirm: () => {
+            const hidden = document.createElement("input");
+            hidden.type = "hidden";
+            hidden.name = "action";
+            hidden.value = "reject";
+            formEl.appendChild(hidden);
+            formEl.submit();
+        }
+    });
+}
+
 document.addEventListener("DOMContentLoaded", function () {
     const tables = document.querySelectorAll(".table");
     if (!tables.length) return;

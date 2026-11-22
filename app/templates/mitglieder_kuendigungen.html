@@ -4,12 +4,17 @@
 
 {% block content %}
 <section class="page-section">
-    <div style="margin-bottom: 1.25rem;">
-        <h1 style="margin: 0 0 0.65rem 0;">Kündigungen verwalten</h1>
+    <div class="kuendigungen-header">
+        <h1 class="kuendigungen-title">Kündigungen verwalten</h1>
+        <div class="back-link-row back-link-row--compact">
+            <a href="{{ url_for('mitglieder.mitglieder') }}" class="back-link" onclick="event.preventDefault(); window.KompassNav.goBack(this.href);">
+                &larr; Zurück zur Mitgliederübersicht
+            </a>
+        </div>
 
-        <form method="GET" action="{{ url_for('mitglieder.kuendigungen_verwalten') }}" style="display: flex; align-items: center; gap: 0.5rem;">
-            <label for="kuendigung-filter" style="font-weight: 600;">Filter:</label>
-            <select id="kuendigung-filter" name="filter" onchange="this.form.submit()" style="padding: 0.4rem 0.65rem; border-radius: 6px; border: 1px solid #cbd5e1;">
+        <form method="GET" action="{{ url_for('mitglieder.kuendigungen_verwalten') }}" class="filter-bar">
+            <label for="kuendigung-filter" class="filter-label">Filter:</label>
+            <select id="kuendigung-filter" name="filter" class="minimal-select" onchange="this.form.submit()">
                 {% for key, label in filter_labels.items() %}
                     <option value="{{ key }}" {% if key == aktueller_filter %}selected{% endif %}>{{ label }}</option>
                 {% endfor %}
@@ -19,50 +24,48 @@
 
     {% if not kuendigungen %}
         <div class="form-card">
-            <p style="margin: 0; color: #4b5563;">
+            <p class="empty-state-text">
                 Für die Auswahl <strong>{{ filter_labels[aktueller_filter] }}</strong> liegen aktuell keine Kündigungen vor.
             </p>
         </div>
     {% endif %}
 
     {% for k in kuendigungen %}
-        <div class="form-card" style="margin-bottom: 1.5rem;">
-            <div style="display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 0.5rem; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.75rem; margin-bottom: 1rem;">
+        <div class="form-card kuendigung-card">
+            <div class="kuendigung-card-head">
                 <div>
-                    <h3 style="margin: 0;">
+                    <h3 class="kuendigung-card-title">
                         {{ k.mitglied_vorname }} {{ k.mitglied_nachname }}
-                        <span style="font-weight: 400; color: #6b7280; font-size: 0.95rem;">
-                            (Vorgang #{{ k.vorgangsnummer or k.id }})
-                        </span>
+                        <span class="vorgang-id">(Vorgang #{{ k.vorgangsnummer or k.id }})</span>
                     </h3>
-                    <small style="color: #6b7280;">Eingegangen am {{ k.erstellt_am_de or k.erstellt_am }}</small>
+                    <small class="text-muted">Eingegangen am {{ k.erstellt_am_de or k.erstellt_am }}</small>
                 </div>
 
                 <div>
                     {% if k.status == 'bestaetigt' %}
-                        <span style="display: inline-block; padding: 0.25rem 0.65rem; border-radius: 999px; font-size: 0.85rem; font-weight: 600; background: #dcfce7; color: #166534;">
+                        <span class="status-pill status-pill--bestaetigt">
                             Bestätigt{% if k.bestaetigt_am_de %} am {{ k.bestaetigt_am_de }}{% endif %}
                         </span>
                     {% elif k.status == 'verworfen' %}
-                        <span style="display: inline-block; padding: 0.25rem 0.65rem; border-radius: 999px; font-size: 0.85rem; font-weight: 600; background: #f3f4f6; color: #4b5563;">
+                        <span class="status-pill status-pill--verworfen">
                             Verworfen{% if k.bestaetigt_am_de %} am {{ k.bestaetigt_am_de }}{% endif %}
                         </span>
                     {% else %}
-                        <span style="display: inline-block; padding: 0.25rem 0.65rem; border-radius: 999px; font-size: 0.85rem; font-weight: 600; background: #fef3c7; color: #92400e;">
+                        <span class="status-pill status-pill--ausstehend">
                             Ausstehend
                         </span>
                     {% endif %}
                 </div>
             </div>
 
-            <div class="form-grid" style="margin-bottom: 1rem;">
+            <div class="form-grid form-grid--spaced">
                 <div>
                     <strong>Erziehungsberechtigte:r:</strong><br>
                     {{ k.eb_vorname }} {{ k.eb_nachname }}<br>
-                    <span style="color: #4b5563; font-size: 0.9rem;">{{ k.eb_email }}</span>
+                    <span class="detail-subline">{{ k.eb_email }}</span>
                 </div>
                 <div>
-                    <strong>Kündigungsdatum & Art:</strong><br>
+                    <strong>Kündigungsdatum &amp; Art:</strong><br>
                     <strong>{{ k.kuendigungsdatum_de or k.kuendigungsdatum }}</strong> ({{ k.kuendigungsart_label or k.kuendigungsart }})
                 </div>
                 <div>
@@ -76,14 +79,14 @@
             </div>
 
             {% if k.unterschrift %}
-                <div style="margin-bottom: 1rem;">
-                    <strong style="display: block; margin-bottom: 0.35rem;">Unterschrift:</strong>
-                    <img src="{{ k.unterschrift }}" alt="Unterschrift" style="max-height: 80px; border: 1px solid #e5e7eb; border-radius: 6px; padding: 4px; background: #fff;">
+                <div class="signature-preview-box">
+                    <strong class="block-label">Unterschrift:</strong>
+                    <img src="{{ k.unterschrift }}" alt="Unterschrift" class="signature-thumb">
                 </div>
             {% endif %}
 
             {% if k.ist_ausstehend %}
-                <form method="POST" action="{{ url_for('mitglieder.kuendigung_bestaetigen_route', kuendigung_id=k.id) }}" style="border-top: 1px solid #e5e7eb; padding-top: 1rem;">
+                <form method="POST" action="{{ url_for('mitglieder.kuendigung_bestaetigen_route', kuendigung_id=k.id) }}" class="kuendigung-action-form">
                     <div class="form-grid">
                         <div class="form-group">
                             <label for="mitglied_{{ k.id }}">Kündigung in Tabelle „Mitglieder“ vermerken</label>
@@ -101,48 +104,54 @@
                         </div>
 
                         <div class="form-group">
-                            <label>Interne Benachrichtigung (Mini-Adressbuch)</label>
+                            <span class="adressbuch-heading">Interne Benachrichtigung (Mini-Adressbuch)</span>
                             {% if adressbuch %}
-                                <div style="display: flex; flex-direction: column; gap: 0.35rem; padding-top: 0.25rem;">
+                                <div class="checkbox-stack--tight">
                                     {% for eintrag in adressbuch %}
-                                        <label style="display: inline-flex; align-items: center; gap: 0.45rem; font-weight: 400; cursor: pointer;">
+                                        <label class="checkbox-label">
                                             <input type="checkbox" name="adressbuch_ids" value="{{ eintrag.id }}">
                                             <span><strong>{{ eintrag.bezeichnung }}</strong> ({{ eintrag.email }})</span>
                                         </label>
                                     {% endfor %}
                                 </div>
                             {% else %}
-                                <small style="color: #6b7280;">Noch keine Einträge im Mini-Adressbuch unter Admin → Email Verwaltung angelegt.</small>
+                                <small class="text-muted">Noch keine Einträge im Mini-Adressbuch unter Admin → Email Verwaltung angelegt.</small>
                             {% endif %}
                         </div>
                     </div>
 
-                    <div class="form-group" style="margin-top: 0.85rem;">
+                    <div class="form-group form-group--top-spaced">
                         <label for="freitext_{{ k.id }}">Optionaler Freitext in der Kündigungsbestätigung an Erziehungsberechtigte</label>
-                        <textarea id="freitext_{{ k.id }}" name="freitext" rows="3" style="width: 100%;" placeholder="z. B. Hinweis zu offenen Rückgaben oder Rückfragen..."></textarea>
+                        <textarea id="freitext_{{ k.id }}" name="freitext" rows="3" class="full-width-textarea" placeholder="z. B. Hinweis zu offenen Rückgaben oder Rückfragen..."></textarea>
                     </div>
 
-                    <div class="form-actions" style="margin-top: 1rem;">
-                        <button type="submit" class="btn-submit">Kündigung bestätigen &amp; E-Mails senden</button>
+                    <div class="form-actions">
+                        <button type="submit" class="btn-kompass btn-kompass--success">Kündigung bestätigen &amp; E-Mails senden</button>
                     </div>
                 </form>
 
-                <form method="POST"
+                <form id="verwerfen-form-{{ k.id }}"
+                      method="POST"
                       action="{{ url_for('mitglieder.kuendigung_verwerfen_route', kuendigung_id=k.id) }}"
-                      onsubmit="return confirm('Diese Kündigung wirklich als Spam/ungültig verwerfen? Es wird keine Bestätigung versendet.');"
-                      style="margin-top: 0.65rem;">
-                    <button type="submit"
-                            class="btn-submit"
-                            style="background-color: #dc2626; border-color: #dc2626; color: #ffffff;">
+                      class="verwerfen-form">
+                    <button type="button"
+                            class="btn-kompass btn-kompass--danger"
+                            onclick="window.KompassModal.open({
+                                title: 'Kündigung verwerfen?',
+                                message: 'Soll diese Kündigung (#{{ k.vorgangsnummer or k.id }}) als Spam/ungültig verworfen werden? Es wird keine E-Mail versendet.',
+                                submitText: 'Kündigung verwerfen',
+                                cancelText: 'Behalten',
+                                onConfirm: () => document.getElementById('verwerfen-form-{{ k.id }}').submit()
+                            });">
                         Kündigung verwerfen (Spam / ungültig)
                     </button>
                 </form>
             {% else %}
-                <div style="border-top: 1px solid #e5e7eb; padding-top: 0.75rem; font-size: 0.9rem; color: #4b5563;">
+                <div class="kuendigung-meta-footer">
                     {% if k.bestaetigt_von %}Bearbeitet von: <strong>{{ k.bestaetigt_von }}</strong> · {% endif %}
                     Bestätigung gesendet: <strong>{{ "Ja" if k.bestaetigung_gesendet else "Nein" }}</strong>
                     {% if k.freitext_bestaetigung %}
-                        <div style="margin-top: 0.4rem;"><strong>Freitext:</strong> {{ k.freitext_bestaetigung }}</div>
+                        <div class="freitext-note"><strong>Freitext:</strong> {{ k.freitext_bestaetigung }}</div>
                     {% endif %}
                 </div>
             {% endif %}

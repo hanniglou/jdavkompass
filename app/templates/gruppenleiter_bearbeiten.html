@@ -13,23 +13,23 @@
                 <div class="form-grid">
 
                     <div class="form-group">
-                        <label>Vorname</label>
-                        <input type="text" name="vorname" value="{{ leiter.vorname }}">
+                        <label for="leiter-vorname">Vorname</label>
+                        <input id="leiter-vorname" type="text" name="vorname" value="{{ leiter.vorname }}">
                     </div>
 
                     <div class="form-group">
-                        <label>Nachname</label>
-                        <input type="text" name="nachname" value="{{ leiter.nachname }}">
+                        <label for="leiter-nachname">Nachname</label>
+                        <input id="leiter-nachname" type="text" name="nachname" value="{{ leiter.nachname }}">
                     </div>
 
                     <div class="form-group">
-                        <label>Geburtsdatum</label>
-                        <input type="date" name="geburtsdatum" value="{{ leiter.geburtsdatum }}">
+                        <label for="leiter-geburtsdatum">Geburtsdatum</label>
+                        <input id="leiter-geburtsdatum" type="date" name="geburtsdatum" value="{{ leiter.geburtsdatum }}">
                     </div>
 
                     <div class="form-group">
-                        <label>Telefon</label>
-                        <input type="text" name="telefon" value="{{ leiter.telefon }}">
+                        <label for="leiter-telefon">Telefon</label>
+                        <input id="leiter-telefon" type="text" name="telefon" value="{{ leiter.telefon }}">
                     </div>
 
                 </div>
@@ -41,18 +41,18 @@
                 <div class="form-grid">
 
                     <div class="form-group">
-                        <label>IBAN</label>
-                        <input type="text" name="iban" value="{{ leiter.iban }}">
+                        <label for="leiter-iban">IBAN</label>
+                        <input id="leiter-iban" type="text" name="iban" value="{{ leiter.iban }}">
                     </div>
 
                     <div class="form-group">
-                        <label>BIC</label>
-                        <input type="text" name="bic" value="{{ leiter.bic }}">
+                        <label for="leiter-bic">BIC</label>
+                        <input id="leiter-bic" type="text" name="bic" value="{{ leiter.bic }}">
                     </div>
 
                     <div class="form-group">
-                        <label>Bank</label>
-                        <input type="text" name="bank" value="{{ leiter.bank }}">
+                        <label for="leiter-bank">Bank</label>
+                        <input id="leiter-bank" type="text" name="bank" value="{{ leiter.bank }}">
                     </div>
 
                 </div>
@@ -64,8 +64,8 @@
                 <div class="form-grid">
 
                     <div class="form-group">
-                        <label>Gruppenrolle</label>
-                        <select name="gruppenrolle">
+                        <label for="leiter-gruppenrolle">Gruppenrolle</label>
+                        <select id="leiter-gruppenrolle" name="gruppenrolle">
                             <option value="Jugendleiter" {% if leiter.gruppenrolle in ['Jugendleiter', 'Jugendleiter:in'] %}selected{% endif %}>
                                 Jugendleiter:in
                             </option>
@@ -76,8 +76,8 @@
                     </div>
 
                     <div class="form-group">
-                        <label>Vereinsrolle</label>
-                        <select name="vereinsrolle">
+                        <label for="leiter-vereinsrolle">Vereinsrolle</label>
+                        <select id="leiter-vereinsrolle" name="vereinsrolle">
                             <option value="keine" {% if leiter.vereinsrolle=='keine' %}selected{% endif %}>keine</option>
                             <option value="Jugendausschuss" {% if leiter.vereinsrolle=='Jugendausschuss' %}selected{% endif %}>
                                 Jugendausschuss
@@ -89,8 +89,8 @@
                     </div>
 
                     <div class="form-group">
-                        <label>Verknüpfter Account</label>
-                        <select name="account_id">
+                        <label for="leiter-account">Verknüpfter Account</label>
+                        <select id="leiter-account" name="account_id">
                             <option value="">Kein Account verknüpft</option>
                             {% for acc in accounts %}
                                 {% set label = acc.anzeigename or acc.uname %}
@@ -105,7 +105,7 @@
             </div>
 
             <div class="form-actions">
-                <button type="submit" class="btn-submit">Speichern</button>
+                <button type="submit" class="btn-kompass btn-kompass--success">Speichern</button>
             </div>
 
         </form>

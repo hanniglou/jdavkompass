@@ -1,11 +1,8 @@
-from datetime import date
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 
-from app.models import get_kompass
 from app.routes.auth import require_role
 from app.services.admin_service import log_aenderung
-from app.services.mail_service import hole_adressbuch_eintraege
 from app.services.kuendigung_service import (
     KUENDIGUNG_FILTER_LABELS,
     bestaetige_kuendigung,
@@ -13,6 +10,7 @@ from app.services.kuendigung_service import (
     get_kuendigungen,
     verwerfe_kuendigung,
 )
+from app.services.mail_service import hole_adressbuch_eintraege
 from app.services.mitglieder_service import (
     add_mitglied_to_unapproved,
     get_mitglied_historie,
@@ -25,6 +23,15 @@ from app.services.mitglieder_service import (
 )
 
 mitglieder_bp = Blueprint("mitglieder", __name__)
+
+
+def _aktueller_bearbeiter() -> str:
+    return (
+        getattr(current_user, "display_name", None)
+        or getattr(current_user, "uname", None)
+        or getattr(current_user, "username", "")
+        or ""
+    ).strip()
 
 
 @mitglieder_bp.route("/anmeldung", methods=["GET", "POST"])
@@ -76,12 +83,7 @@ def mitglied_bearbeiten(mitglied_id):
 
     if request.method == "POST":
         action = request.form.get("action", "speichern")
-        bearbeiter = (
-            getattr(current_user, "anzeigename", None)
-            or getattr(current_user, "uname", None)
-            or getattr(current_user, "username", "")
-            or ""
-        )
+        bearbeiter = _aktueller_bearbeiter()
 
         if action == "manuelle_kuendigung":
             try:
@@ -192,11 +194,7 @@ def kuendigung_bestaetigen_route(kuendigung_id):
     mitglied_id = request.form.get("mitglied_id")
     adressbuch_ids = request.form.getlist("adressbuch_ids")
     freitext = request.form.get("freitext", "")
-    bearbeiter = (
-        getattr(current_user, "anzeigename", None)
-        or getattr(current_user, "uname", None)
-        or getattr(current_user, "username", "")
-    )
+    bearbeiter = _aktueller_bearbeiter()
 
     try:
         ergebnis = bestaetige_kuendigung(
@@ -231,11 +229,7 @@ def kuendigung_bestaetigen_route(kuendigung_id):
 @login_required
 @require_role(3)
 def kuendigung_verwerfen_route(kuendigung_id):
-    bearbeiter = (
-        getattr(current_user, "anzeigename", None)
-        or getattr(current_user, "uname", None)
-        or getattr(current_user, "username", "")
-    )
+    bearbeiter = _aktueller_bearbeiter()
     try:
         vorgangsnummer = verwerfe_kuendigung(
             kuendigung_id=kuendigung_id,

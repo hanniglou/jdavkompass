@@ -1,8 +1,6 @@
 import datetime as dt
 from datetime import date, timedelta
-from io import BytesIO
 
-import pandas as pd
 from flask import (
     Blueprint,
     abort,
@@ -15,18 +13,33 @@ from flask import (
     url_for,
 )
 from flask_login import current_user, login_required
-from openpyxl.styles import Alignment, Font
-from openpyxl.utils import get_column_letter
 
 from app.models import get_kompass
 from app.routes.auth import require_role
 from app.services.admin_service import log_aenderung
-from app.services.utils import heute
-from app.services.gruppe_service import *
+from app.services.gruppe_service import (
+    baue_anwesenheits_excel,
+    get_anwesenheit,
+    get_gruppe,
+    get_gruppenleiter,
+    get_mitglieder,
+    get_vertretungen_by_date,
+    get_vertretungs_kandidaten,
+    gruppenleiter_aus_gruppe_entfernen,
+    gruppenleiter_zu_gruppe_hinzufuegen,
+    mitglied_aus_gruppe_entfernen,
+    mitglied_zu_gruppe_hinzufuegen,
+    new_day,
+    search_person,
+    termin_loeschen,
+    update_anwesenheit,
+    update_vertretungen,
+)
 from app.services.mitglieder_service import (
     log_gruppenaufnahme_historie,
     log_gruppenentfernung_historie,
 )
+from app.services.utils import heute
 
 gruppe_bp = Blueprint("gruppe", __name__)
 
@@ -58,7 +71,6 @@ def gruppe(gruppe_id):
         )
         alle_daten = list(dict.fromkeys(alle_daten_mitglieder + alle_daten_gruppenleiter))
 
-    # Zeitraum-Filter aus URL lesen (Standard: aktuelles Quartal)
     zeitraum = request.args.get("filter", "quartal")
     if zeitraum == "quartal":
         quartal_start_monat = ((today.month - 1) // 3) * 3 + 1
@@ -67,7 +79,6 @@ def gruppe(gruppe_id):
     elif zeitraum == "6monate":
         start_datum = (today - timedelta(days=183)).isoformat()
         alle_daten = [d for d in alle_daten if d >= start_datum]
-    # Bei "alle" bleibt alle_daten ungefiltert
 
     for mitglied in mitglieder:
         geburtsdatum = dt.datetime.strptime(mitglied["geburtsdatum"], "%Y-%m-%d")
@@ -109,7 +120,6 @@ def gruppe(gruppe_id):
                             "success",
                         )
 
-                    # Falls der nachgetragene Termin außerhalb des aktuellen Zeitraums liegt, Filter automatisch öffnen
                     if zeitraum == "quartal":
                         quartal_start_monat = ((today.month - 1) // 3) * 3 + 1
                         start_datum = date(today.year, quartal_start_monat, 1).isoformat()
@@ -150,6 +160,7 @@ def gruppe(gruppe_id):
             "Anwesenheit gespeichert",
             f"{gruppe['name']} (ID {gruppe_id})",
         )
+        flash("Anwesenheit wurde gespeichert.", "success")
 
         return redirect(url_for("gruppe.gruppe", gruppe_id=gruppe_id, filter=zeitraum))
 

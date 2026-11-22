@@ -8,8 +8,8 @@ from flask import (
 from flask_login import login_required
 
 from app.routes.auth import require_role
+from app.services.gruppen_service import loesche_gruppe, neue_gruppe_erstellen
 from app.services.utils import jugendgruppen_preview
-from app.services.gruppen_service import *
 
 gruppen_bp = Blueprint("gruppen", __name__)
 

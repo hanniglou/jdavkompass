@@ -7,53 +7,52 @@
     <h1>Admin Panel</h1>
     {% include "admin/_nav.html" %}
 
-    <p style="margin-bottom: 1.25rem;">Wähle einen Verwaltungsbereich aus, um Einstellungen gezielt zu bearbeiten.</p>
+    <p class="admin-lead">Wähle einen Verwaltungsbereich aus, um Einstellungen gezielt zu bearbeiten.</p>
 
-    {% set card_btn_style = "display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.5rem 0.95rem; border-radius: 8px; text-decoration: none; font-size: 0.92rem; font-weight: 500; background-color: #f9fafb; color: #374151; border: 1px solid #d1d5db; transition: all 0.15s ease;" %}
-
-    <div style="display: flex; flex-direction: column; gap: 1rem; max-width: 720px;">
-        <div class="form-card" style="margin: 0;">
-            <h3 style="margin-top: 0;">Account Verwaltung</h3>
+    <div class="admin-card-stack">
+        <div class="form-card admin-panel-card">
+            <h3>Account Verwaltung</h3>
             <p>Accounts insgesamt: <strong>{{ accounts_count }}</strong> (offen: <strong>{{ offene_accounts_count }}</strong>)</p>
-            <a href="{{ url_for('admin.admin_accounts') }}" style="{{ card_btn_style }}">
+            <a href="{{ url_for('admin.admin_accounts') }}" class="btn-kompass btn-kompass--secondary-light">
                 Zur Account Verwaltung &rarr;
             </a>
         </div>
 
-        <div class="form-card" style="margin: 0;">
-            <h3 style="margin-top: 0;">JuLei Verwaltung</h3>
+        <div class="form-card admin-panel-card">
+            <h3>JuLei Verwaltung</h3>
             <p>Registrierte Jugendleitende: <strong>{{ juleis_count }}</strong></p>
-            <a href="{{ url_for('admin.admin_juleis') }}" style="{{ card_btn_style }}">
+            <a href="{{ url_for('admin.admin_juleis') }}" class="btn-kompass btn-kompass--secondary-light">
                 Zur JuLei Verwaltung &rarr;
             </a>
         </div>
 
-        <div class="form-card" style="margin: 0;">
-            <h3 style="margin-top: 0;">Email Verwaltung</h3>
+        <div class="form-card admin-panel-card">
+            <h3>Email Verwaltung</h3>
             <p>SMTP-Zugangsdaten und Text-/HTML-Vorlagen für E-Mails konfigurieren.</p>
-            <a href="{{ url_for('admin.admin_email') }}" style="{{ card_btn_style }}">
+            <a href="{{ url_for('admin.admin_email') }}" class="btn-kompass btn-kompass--secondary-light">
                 Zur Email Verwaltung &rarr;
             </a>
         </div>
 
-        <div class="form-card" style="margin: 0;">
-            <h3 style="margin-top: 0;">Export</h3>
+        <div class="form-card admin-panel-card">
+            <h3>Export</h3>
             <p>Anwesenheitslisten einzelner oder mehrerer Gruppen als Excel- oder ZIP-Datei herunterladen (Fallback).</p>
-            <a href="{{ url_for('admin.admin_export') }}" style="{{ card_btn_style }}">
+            <a href="{{ url_for('admin.admin_export') }}" class="btn-kompass btn-kompass--secondary-light">
                 Zum Export &rarr;
             </a>
         </div>
 
-        <div class="form-card" style="margin: 0;">
-            <h3 style="margin-top: 0; margin-bottom: 0.6rem;">Änderungslog</h3>
-            <details>
-                <summary style="cursor: pointer; font-weight: 600; color: #374151; list-style: revert;">
-                    Letzte Änderungen ein-/ausklappen ({{ log_eintraege|length if log_eintraege else 0 }})
+        <div class="form-card admin-panel-card">
+            <h3 class="admin-log-card-title">Änderungslog</h3>
+            <details class="section-details">
+                <summary class="section-title">
+                    <span>Letzte Änderungen ein-/ausklappen ({{ log_eintraege|length if log_eintraege else 0 }})</span>
+                    <span class="section-chevron" aria-hidden="true">▾</span>
                 </summary>
 
-                <div style="margin-top: 0.85rem;">
+                <div class="admin-log-details-body">
                     {% if log_eintraege %}
-                        <table class="table" style="margin-bottom: 0.9rem;">
+                        <table class="table admin-mini-table">
                             <thead>
                                 <tr>
                                     <th>Zeitpunkt</th>
@@ -72,12 +71,12 @@
                             </tbody>
                         </table>
                     {% else %}
-                        <p style="color: #6b7280; margin: 0 0 0.9rem 0;">
-                            Aktuell sind keine Log-Einträge vorhanden.
+                        <p class="text-muted admin-empty-log">
+                            Aktuell sind keine Log-Einträge vorhanden – alle schweigen wie das Gipfelkreuz im Nebel.
                         </p>
                     {% endif %}
 
-                    <a href="{{ url_for('admin.admin_log') }}" style="{{ card_btn_style }}">
+                    <a href="{{ url_for('admin.admin_log') }}" class="btn-kompass btn-kompass--secondary-light">
                         Vollständigen Änderungslog öffnen &rarr;
                     </a>
                 </div>

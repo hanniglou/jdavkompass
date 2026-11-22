@@ -130,7 +130,6 @@ def save_gruppenleiter(data, gruppen_leiter_id):
                     gruppen_leiter_id,
                 ),
             )
-
         else:
             cursor.execute(
                 """
@@ -217,6 +216,7 @@ def get_all_accounts():
             SELECT
                 id,
                 uname,
+                anzeigename,
                 status,
                 role
             FROM
@@ -240,7 +240,7 @@ def get_gruppenleiter(gruppenleiter_id):
             WHERE
                 id = ?
             """,
-            (gruppenleiter_id,)
+            (gruppenleiter_id,),
         ).fetchone()
         return gruppenleiter
 
@@ -249,7 +249,8 @@ def get_all_gruppenleiter():
     with get_kompass() as conn:
         cursor = conn.cursor()
 
-        gruppenleiter = cursor.execute("""
+        gruppenleiter = cursor.execute(
+            """
             SELECT
                 gl.id,
                 gl.vorname,
@@ -270,6 +271,7 @@ def get_all_gruppenleiter():
                 gl.id
             ORDER BY
                 gl.nachname
-            """).fetchall()
+            """
+        ).fetchall()
 
         return gruppenleiter

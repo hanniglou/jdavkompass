@@ -1,9 +1,7 @@
-import os
-import sqlite3
 from datetime import date, datetime
 from flask_login import current_user
 
-from app.models import get_kompass
+from app.models import get_accounts, get_kompass
 from app.services.mail_service import (
     hole_adressbuch_eintraege,
     sende_interne_kuendigungs_info,
@@ -13,15 +11,8 @@ from app.services.mail_service import (
 
 def _lade_uname_zu_anzeigename() -> dict[str, str]:
     mapping: dict[str, str] = {}
-    db_pfad = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-        "db",
-        "accounts.db",
-    )
-    if not os.path.exists(db_pfad):
-        return mapping
     try:
-        with sqlite3.connect(db_pfad) as acc_conn:
+        with get_accounts() as acc_conn:
             for uname, anzeigename in acc_conn.execute(
                 "SELECT uname, anzeigename FROM accounts"
             ).fetchall():

@@ -13,6 +13,12 @@ KUENDIGUNGSART_LABELS = {
     "monatsende": "Zum Monatsende",
 }
 
+KUENDIGUNG_FILTER_LABELS = {
+    "ausstehende": "Nur ausstehende",
+    "6_monate": "Letzte 6 Monate",
+    "alle": "Alle Kündigungen",
+}
+
 
 def _formatiere_datum_de(wert) -> str:
     if not wert:
@@ -38,46 +44,6 @@ def get_alle_mitglieder_kurz() -> list[dict]:
             """
         ).fetchall()
     return [dict(r) for r in rows]
-    with get_kompass() as conn:
-        k_rows = conn.execute(
-            """
-            SELECT *
-            FROM kuendigungen
-            WHERE status = 'eingegangen'
-            ORDER BY erstellt_am ASC, id ASC
-            """
-        ).fetchall()
-        m_rows = conn.execute(
-            "SELECT id, vorname, nachname, geburtsdatum, mitgliedsnummer FROM mitglieder"
-        ).fetchall()
-
-    mitglieder_liste = [dict(m) for m in m_rows]
-    ergebnis = []
-
-    for row in k_rows:
-        item = dict(row)
-        item["kuendigungsdatum_de"] = _formatiere_datum_de(item.get("kuendigungsdatum"))
-        item["erstellt_am_de"] = _formatiere_datum_de(item.get("erstellt_am"))
-        item["kuendigungsart_label"] = KUENDIGUNGSART_LABELS.get(
-            item.get("kuendigungsart", ""),
-            item.get("kuendigungsart", ""),
-        )
-
-        v_norm = (item.get("mitglied_vorname") or "").strip().lower()
-        n_norm = (item.get("mitglied_nachname") or "").strip().lower()
-        match = next(
-            (
-                m["id"]
-                for m in mitglieder_liste
-                if (m["vorname"] or "").strip().lower() == v_norm
-                and (m["nachname"] or "").strip().lower() == n_norm
-            ),
-            None,
-        )
-        item["vorgeschlagene_mitglied_id"] = match
-        ergebnis.append(item)
-
-    return ergebnis
 
 
 def bestaetige_kuendigung(
@@ -105,7 +71,6 @@ def bestaetige_kuendigung(
         vorgangsnummer = daten.get("vorgangsnummer") or str(daten["id"])
         freitext_clean = (freitext or "").strip()
 
-        # 1. Vermerk in Tabelle 'mitglieder' setzen (falls Mitglied ausgewählt wurde)
         mitglied_vermerkt = False
         if mitglied_id_raw:
             try:
@@ -122,7 +87,6 @@ def bestaetige_kuendigung(
             except (TypeError, ValueError):
                 mitglied_vermerkt = False
 
-        # 2. Ausgewählte Empfänger aus dem Mini-Adressbuch ermitteln
         selected_ids = set()
         for raw_id in adressbuch_ids_raw or []:
             try:
@@ -135,17 +99,14 @@ def bestaetige_kuendigung(
             e for e in alle_adressen if e.get("aktiv") and e.get("id") in selected_ids
         ]
 
-        # 3. Kündigungsbestätigung an Erziehungsberechtigte senden
         sende_kuendigungsbestaetigung(daten, freitext=freitext_clean)
 
-        # 4. Interne Info-Mails an ausgewählte Adressen senden
         interne_mails_gesendet = sende_interne_kuendigungs_info(
             ausgewaehlte_empfaenger,
             daten,
             freitext=freitext_clean,
         )
 
-        # 5. Status in 'kuendigungen' auf 'bestaetigt' setzen
         jetzt = datetime.now().isoformat(sep=" ", timespec="seconds")
         conn.execute(
             """
@@ -166,11 +127,6 @@ def bestaetige_kuendigung(
         "interne_mails_gesendet": interne_mails_gesendet,
     }
 
-KUENDIGUNG_FILTER_LABELS = {
-    "ausstehende": "Nur ausstehende",
-    "6_monate": "Letzte 6 Monate",
-    "alle": "Alle Kündigungen",
-}
 
 def get_kuendigungen(filter_modus: str = "ausstehende") -> list[dict]:
     modus = filter_modus if filter_modus in KUENDIGUNG_FILTER_LABELS else "ausstehende"
@@ -215,7 +171,7 @@ def get_kuendigungen(filter_modus: str = "ausstehende") -> list[dict]:
 
     for row in k_rows:
         item = dict(row)
-        item["ist_ausstehend"] = (item.get("status") == "eingegangen")
+        item["ist_ausstehend"] = item.get("status") == "eingegangen"
         item["kuendigungsdatum_de"] = _formatiere_datum_de(item.get("kuendigungsdatum"))
         item["erstellt_am_de"] = _formatiere_datum_de(item.get("erstellt_am"))
         item["bestaetigt_am_de"] = _formatiere_datum_de(item.get("bestaetigt_am"))
@@ -243,6 +199,7 @@ def get_kuendigungen(filter_modus: str = "ausstehende") -> list[dict]:
 
 def get_ausstehende_kuendigungen() -> list[dict]:
     return get_kuendigungen("ausstehende")
+
 
 def verwerfe_kuendigung(kuendigung_id: int, bearbeiter_name: str = "") -> str:
     jetzt_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")

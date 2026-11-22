@@ -1,9 +1,13 @@
+{% from "_modal.html" import kompass_confirm_modal %}
 <!DOCTYPE html>
 <html lang="de">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}JDAV Hildesheim Kompass{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/cssintern.css') }}">
     <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
 </head>
@@ -39,7 +43,57 @@
 
     <footer class="site-footer container">
         <p>Notfallkontakt: Henri Meyer-Gauen <br> henri.meyer-gauen@jdav-hildesheim.de <br> +49 160 92509523 <br> &copy; 2026 JDAV Hildesheim. Alle Rechte vorbehalten.</p>
-        
     </footer>
+
+    {{ kompass_confirm_modal() }}
+
+    <script>
+    (function () {
+        const SCROLL_PREFIX = "kompass_scroll:";
+        const RETURN_URL_KEY = "kompass_return_url";
+
+        document.addEventListener("click", (e) => {
+            const link = e.target.closest("a[href]");
+            if (!link) return;
+            const href = link.getAttribute("href");
+            if (!href || href.startsWith("#") || href.startsWith("mailto:") || href.startsWith("tel:")) return;
+
+            const currentKey = SCROLL_PREFIX + window.location.pathname + window.location.search;
+            try {
+                sessionStorage.setItem(currentKey, String(window.scrollY || 0));
+                if (!link.classList.contains("back-link")) {
+                    sessionStorage.setItem(RETURN_URL_KEY, window.location.pathname + window.location.search);
+                }
+            } catch (_) {}
+        });
+
+        window.addEventListener("load", () => {
+            try {
+                const key = SCROLL_PREFIX + window.location.pathname + window.location.search;
+                const saved = sessionStorage.getItem(key);
+                if (saved !== null) {
+                    const y = parseInt(saved, 10);
+                    if (!Number.isNaN(y) && y > 0) {
+                        requestAnimationFrame(() => window.scrollTo(0, y));
+                    }
+                    sessionStorage.removeItem(key);
+                }
+            } catch (_) {}
+        });
+
+        window.KompassNav = {
+            goBack: function (fallbackUrl) {
+                try {
+                    const prev = sessionStorage.getItem(RETURN_URL_KEY);
+                    if (prev && prev !== (window.location.pathname + window.location.search)) {
+                        window.location.href = prev;
+                        return;
+                    }
+                } catch (_) {}
+                window.location.href = fallbackUrl;
+            }
+        };
+    })();
+    </script>
 </body>
 </html>

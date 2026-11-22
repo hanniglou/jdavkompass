@@ -1,8 +1,11 @@
 {% extends "base_extern.html" %}
 
-{% block title %}Zugriff verweigert{% endblock %}
+{% block title %}403 – Zugriff verweigert | JDAV Hildesheim{% endblock %}
 
 {% block content %}
-<h1>403 - Zugriff verweigert</h1>
-<p>Sie haben keine Berechtigung, diese Seite aufzurufen.</p>
+<div class="error-card">
+    <h1>403 – Da kommst du so nicht rein</h1>
+    <p>Für diese Route fehlt dir noch die passende Berechtigung – kein Seil, kein Sicherungsgerät, kein Zutritt.</p>
+    <a href="/" class="btn-kompass btn-kompass--secondary-light">Zur Startseite</a>
+</div>
 {% endblock %}

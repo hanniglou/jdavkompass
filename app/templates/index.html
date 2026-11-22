@@ -7,29 +7,29 @@
     <h1>Willkommen, {{ current_user.display_name }}</h1>
 
     {% if current_user.role >= 3 and mitglieder_unapproved_daten %}
-    <div class="table-container mitglieder-container antraege-banner" style="margin-bottom: 30px; display: flex; flex-direction: column; align-items: flex-start; gap: 12px;">
+    <div class="table-container mitglieder-container antraege-banner dashboard-banner">
         <div>
-            <h3 style="margin: 0 0 5px 0;">Offene Mitgliedsanträge</h3>
+            <h3 class="banner-title">Offene Mitgliedsanträge</h3>
             {% if mitglieder_unapproved_daten|length == 1 %}
-                <p style="margin: 0;">
+                <p class="no-margin">
                     Es liegt aktuell <strong>1</strong> Mitgliedsantrag zur Freigabe vor.
                 </p>
             {% elif mitglieder_unapproved_daten|length > 1 %}
-                <p style="margin: 0;">
+                <p class="no-margin">
                     Es liegen aktuell <strong>{{ mitglieder_unapproved_daten|length }}</strong> Mitgliedsanträge zur Freigabe vor.
                 </p>
             {% else %}
-                <p style="margin: 0;">Aktuell liegen keine Mitgliedsanträge zur Freigabe vor.</p>
+                <p class="no-margin">Aktuell liegen keine Mitgliedsanträge zur Freigabe vor.</p>
             {% endif %}
         </div>
-        <a href="{{ url_for('mitglieder_freigeben.mitglieder_freigeben') }}" class="btn-freigabe">
+        <a href="{{ url_for('mitglieder_freigeben.mitglieder_freigeben') }}" class="btn-kompass btn-kompass--success">
             Zur Mitgliederfreigabe
         </a>
     </div>
     {% endif %}
 
     {% if kuendigungen_ausstehend_count and kuendigungen_ausstehend_count > 0 %}
-    <div class="dashboard-card" style="margin-bottom: 1.5rem;">
+    <div class="dashboard-card dashboard-card--spaced">
         <h3>Offene Kündigungen</h3>
         <p>
             {% if kuendigungen_ausstehend_count == 1 %}
@@ -39,13 +39,11 @@
             {% endif %}
         </p>
         <a href="{{ url_for('mitglieder.kuendigungen_verwalten') }}"
-        class="btn-freigabe"
-        style="background-color: #dc2626; border-color: #dc2626; color: #ffffff;">
+           class="btn-kompass btn-kompass--danger">
             Zu den Kündigungen
         </a>
     </div>
     {% endif %}
-        
 
     <h3>
         Heute ist {{ today }}{% if heutige_gruppen %}, es finden folgende Jugendgruppen statt{% endif %}

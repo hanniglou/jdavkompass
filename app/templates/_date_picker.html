@@ -1,0 +1,341 @@
+{% macro kompass_date_picker(
+    input_id,
+    hidden_name,
+    initial_iso="",
+    max_iso="",
+    wochentag="",
+    form_id="",
+    required=false,
+    full_width=false,
+    placeholder="TT.MM.JJJJ",
+    mark_month_end=false,
+    warn_non_month_end=false
+) -%}
+{% set clean_iso = initial_iso or "" %}
+{% if clean_iso|length == 10 and clean_iso[2] == '.' and clean_iso[5] == '.' %}
+    {% set clean_iso = clean_iso[6:10] ~ '-' ~ clean_iso[3:5] ~ '-' ~ clean_iso[0:2] %}
+{% endif %}
+{% set initial_de = (clean_iso[8:10] ~ '.' ~ clean_iso[5:7] ~ '.' ~ clean_iso[0:4]) if clean_iso|length >= 10 else "" %}
+
+<div class="kompass-date-wrapper{% if full_width %} kompass-date-wrapper--full{% endif %}">
+    <div class="kompass-date-field{% if full_width %} kompass-date-field--full{% endif %}">
+        <input
+            type="text"
+            id="{{ input_id }}"
+            value="{{ initial_de }}"
+            placeholder="{{ placeholder }}"
+            inputmode="numeric"
+            maxlength="10"
+            data-kompass-date-input
+            data-iso-target="{{ input_id }}-iso"
+            data-warning-target="{{ input_id }}-warning"
+            data-iso-datum="{{ clean_iso }}"
+            data-max-datum="{{ max_iso }}"
+            data-wochentag="{{ wochentag }}"
+            data-mark-month-end="{{ '1' if mark_month_end else '0' }}"
+            data-warn-non-month-end="{{ '1' if warn_non_month_end else '0' }}"
+            {% if required %}required{% endif %}
+            class="kompass-date-input{% if full_width %} kompass-date-input--full{% endif %}"
+        >
+        <input
+            type="hidden"
+            id="{{ input_id }}-iso"
+            name="{{ hidden_name }}"
+            value="{{ clean_iso }}"
+            {% if form_id %}form="{{ form_id }}"{% endif %}
+        >
+        <span aria-hidden="true" class="kompass-date-icon">📅</span>
+    </div>
+    {% if warn_non_month_end %}
+    <div id="{{ input_id }}-warning" class="kompass-date-warning" role="status" style="display: none;"></div>
+    {% endif %}
+</div>
+{%- endmacro %}
+
+{% macro kompass_date_picker_scripts() -%}
+<div id="kompass-kalender-popup" class="kompass-kalender-popup" role="dialog" aria-label="Kalender">
+    <div class="kompass-kalender-header">
+        <button type="button" id="kompass-kalender-prev" class="kompass-kalender-nav" title="Vorheriger Monat">&larr;</button>
+        <strong id="kompass-kalender-titel" class="kompass-kalender-title"></strong>
+        <button type="button" id="kompass-kalender-next" class="kompass-kalender-nav" title="Nächster Monat">&rarr;</button>
+    </div>
+    <div class="kompass-kalender-grid kompass-kalender-weekdays">
+        <span>Mo</span><span>Di</span><span>Mi</span><span>Do</span><span>Fr</span><span>Sa</span><span>So</span>
+    </div>
+    <div id="kompass-kalender-grid" class="kompass-kalender-grid"></div>
+</div>
+
+<script>
+(function () {
+    if (window.KompassDatePicker) return;
+
+    const MONATE = [
+        "Januar", "Februar", "März", "April", "Mai", "Juni",
+        "Juli", "August", "September", "Oktober", "November", "Dezember",
+    ];
+    const KUERZEL_MAP = {
+        mo: "montag", di: "dienstag", mi: "mittwoch",
+        do: "donnerstag", fr: "freitag", sa: "samstag", so: "sonntag",
+    };
+    const WOCHENTAGE_JS = [
+        "sonntag", "montag", "dienstag", "mittwoch",
+        "donnerstag", "freitag", "samstag",
+    ];
+
+    let activeInput = null;
+    let kalJahr = null;
+    let kalMonat = null; // 0-basiert
+
+    function parseIso(isoStr) {
+        if (!isoStr || !/^\d{4}-\d{2}-\d{2}$/.test(isoStr)) return null;
+        const [j, m, t] = isoStr.split("-").map(Number);
+        return new Date(j, m - 1, t);
+    }
+
+    function toIso(j, m0, t) {
+        return `${j}-${String(m0 + 1).padStart(2, "0")}-${String(t).padStart(2, "0")}`;
+    }
+
+    function toDe(j, m0, t) {
+        return `${String(t).padStart(2, "0")}.${String(m0 + 1).padStart(2, "0")}.${j}`;
+    }
+
+    function normalizeWeekday(raw) {
+        const clean = (raw || "").trim().toLowerCase();
+        return KUERZEL_MAP[clean] || clean;
+    }
+
+    function isMonthEnd(j, m0, tag) {
+        const letzterTag = new Date(j, m0 + 1, 0).getDate();
+        return tag === letzterTag;
+    }
+
+    function updateMonthEndWarning(inputEl) {
+        const warnId = inputEl.dataset.warningTarget;
+        if (!warnId) return;
+        const warnEl = document.getElementById(warnId);
+        if (!warnEl) return;
+
+        const warnEnabled = inputEl.dataset.warnNonMonthEnd === "1";
+        const isoVal = (inputEl.dataset.isoDatum || "").trim();
+        const dt = parseIso(isoVal);
+
+        if (!warnEnabled || !dt) {
+            warnEl.style.display = "none";
+            warnEl.textContent = "";
+            return;
+        }
+
+        const j = dt.getFullYear();
+        const m0 = dt.getMonth();
+        const tag = dt.getDate();
+        const letzterTag = new Date(j, m0 + 1, 0).getDate();
+
+        if (!isMonthEnd(j, m0, tag)) {
+            const letztesDatumDe = toDe(j, m0, letzterTag);
+            warnEl.textContent = `Hinweis: Das gewählte Datum (${toDe(j, m0, tag)}) ist kein Monatsende (reguläres Monatsende wäre ${letztesDatumDe}). Du kannst das Datum trotzdem speichern.`;
+            warnEl.style.display = "block";
+        } else {
+            warnEl.style.display = "none";
+            warnEl.textContent = "";
+        }
+    }
+
+    function syncFromIso(inputEl, isoVal) {
+        const hiddenEl = document.getElementById(inputEl.dataset.isoTarget);
+        const dt = parseIso(isoVal);
+        if (dt) {
+            const isoClean = toIso(dt.getFullYear(), dt.getMonth(), dt.getDate());
+            const deClean = toDe(dt.getFullYear(), dt.getMonth(), dt.getDate());
+            inputEl.dataset.isoDatum = isoClean;
+            inputEl.value = deClean;
+            if (hiddenEl) hiddenEl.value = isoClean;
+            inputEl.setCustomValidity("");
+        } else {
+            inputEl.dataset.isoDatum = "";
+            if (hiddenEl) hiddenEl.value = "";
+        }
+        updateMonthEndWarning(inputEl);
+        inputEl.dispatchEvent(new CustomEvent("kompass:datechange", { detail: { iso: inputEl.dataset.isoDatum } }));
+    }
+
+    function renderCalendar() {
+        const popup = document.getElementById("kompass-kalender-popup");
+        const titelEl = document.getElementById("kompass-kalender-titel");
+        const gridEl = document.getElementById("kompass-kalender-grid");
+        if (!activeInput || !popup || !titelEl || !gridEl) return;
+
+        titelEl.textContent = `${MONATE[kalMonat]} ${kalJahr}`;
+        gridEl.innerHTML = "";
+
+        const ersterTag = new Date(kalJahr, kalMonat, 1);
+        const startOffset = (ersterTag.getDay() + 6) % 7;
+        const anzahlTage = new Date(kalJahr, kalMonat + 1, 0).getDate();
+        const maxIso = activeInput.dataset.maxDatum || "";
+        const selectedIso = activeInput.dataset.isoDatum || "";
+        const zielTag = normalizeWeekday(activeInput.dataset.wochentag);
+        const markMonthEnd = activeInput.dataset.markMonthEnd === "1";
+
+        for (let i = 0; i < startOffset; i++) {
+            gridEl.appendChild(document.createElement("span"));
+        }
+
+        for (let tag = 1; tag <= anzahlTage; tag++) {
+            const iso = toIso(kalJahr, kalMonat, tag);
+            const zuSpaet = Boolean(maxIso && iso > maxIso);
+            const istGewaehlt = iso === selectedIso;
+            const dtObj = new Date(kalJahr, kalMonat, tag);
+            const istGruppentag = Boolean(zielTag && WOCHENTAGE_JS[dtObj.getDay()] === zielTag);
+            const istMonatsende = markMonthEnd && isMonthEnd(kalJahr, kalMonat, tag);
+            const istHervorgehoben = istGruppentag || istMonatsende;
+
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.textContent = String(tag);
+            btn.disabled = zuSpaet;
+            btn.className = "kompass-kalender-day";
+            if (istHervorgehoben && !zuSpaet) btn.classList.add("kompass-kalender-day--highlight");
+            if (istGewaehlt && !zuSpaet) btn.classList.add("kompass-kalender-day--selected");
+
+            if (!zuSpaet) {
+                btn.addEventListener("click", (ev) => {
+                    ev.stopPropagation();
+                    syncFromIso(activeInput, iso);
+                    closeCalendar();
+                });
+            }
+            gridEl.appendChild(btn);
+        }
+    }
+
+    function openCalendar(inputEl) {
+        const popup = document.getElementById("kompass-kalender-popup");
+        if (!inputEl || !popup) return;
+
+        activeInput = inputEl;
+        const basis = parseIso(inputEl.dataset.isoDatum) || parseIso(inputEl.dataset.maxDatum) || new Date();
+        kalJahr = basis.getFullYear();
+        kalMonat = basis.getMonth();
+
+        const rect = inputEl.getBoundingClientRect();
+        popup.style.top = `${Math.min(window.innerHeight - 315, rect.bottom + 6)}px`;
+        popup.style.left = `${Math.max(8, Math.min(window.innerWidth - 282, rect.left))}px`;
+        popup.style.display = "block";
+        renderCalendar();
+    }
+
+    function closeCalendar() {
+        const popup = document.getElementById("kompass-kalender-popup");
+        if (popup) popup.style.display = "none";
+        activeInput = null;
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+        const prevBtn = document.getElementById("kompass-kalender-prev");
+        const nextBtn = document.getElementById("kompass-kalender-next");
+        if (prevBtn) {
+            prevBtn.addEventListener("click", (ev) => {
+                ev.stopPropagation();
+                if (kalJahr === null) return;
+                const d = new Date(kalJahr, kalMonat - 1, 1);
+                kalJahr = d.getFullYear();
+                kalMonat = d.getMonth();
+                renderCalendar();
+            });
+        }
+        if (nextBtn) {
+            nextBtn.addEventListener("click", (ev) => {
+                ev.stopPropagation();
+                if (kalJahr === null) return;
+                const d = new Date(kalJahr, kalMonat + 1, 1);
+                kalJahr = d.getFullYear();
+                kalMonat = d.getMonth();
+                renderCalendar();
+            });
+        }
+
+        document.querySelectorAll("[data-kompass-date-input]").forEach((inputEl) => {
+            updateMonthEndWarning(inputEl);
+
+            inputEl.addEventListener("click", (ev) => {
+                ev.stopPropagation();
+                openCalendar(inputEl);
+            });
+
+            inputEl.addEventListener("input", () => {
+                const digits = inputEl.value.replace(/\D/g, "").slice(0, 8);
+                let formatted = digits;
+                if (digits.length > 4) {
+                    formatted = `${digits.slice(0, 2)}.${digits.slice(2, 4)}.${digits.slice(4)}`;
+                } else if (digits.length > 2) {
+                    formatted = `${digits.slice(0, 2)}.${digits.slice(2)}`;
+                }
+                if (inputEl.value !== formatted) {
+                    inputEl.value = formatted;
+                }
+
+                const hiddenEl = document.getElementById(inputEl.dataset.isoTarget);
+                if (digits.length === 8) {
+                    const dd = Number(digits.slice(0, 2));
+                    const mm = Number(digits.slice(2, 4));
+                    const yyyy = Number(digits.slice(4, 8));
+                    const isoCandidate = `${digits.slice(4, 8)}-${digits.slice(2, 4)}-${digits.slice(0, 2)}`;
+                    const check = parseIso(isoCandidate);
+                    if (
+                        check &&
+                        check.getFullYear() === yyyy &&
+                        check.getMonth() === mm - 1 &&
+                        check.getDate() === dd
+                    ) {
+                        inputEl.dataset.isoDatum = isoCandidate;
+                        if (hiddenEl) hiddenEl.value = isoCandidate;
+                        inputEl.setCustomValidity("");
+                        updateMonthEndWarning(inputEl);
+                        inputEl.dispatchEvent(new CustomEvent("kompass:datechange", { detail: { iso: isoCandidate } }));
+                        return;
+                    }
+                }
+
+                inputEl.dataset.isoDatum = "";
+                if (hiddenEl) hiddenEl.value = "";
+                updateMonthEndWarning(inputEl);
+            });
+
+            inputEl.addEventListener("blur", () => {
+                const hiddenEl = document.getElementById(inputEl.dataset.isoTarget);
+                if (inputEl.value.trim() && (!hiddenEl || !hiddenEl.value)) {
+                    inputEl.setCustomValidity("Bitte ein gültiges Datum im Format TT.MM.JJJJ eingeben.");
+                } else {
+                    inputEl.setCustomValidity("");
+                }
+            });
+        });
+    });
+
+    document.addEventListener("click", (event) => {
+        const popup = document.getElementById("kompass-kalender-popup");
+        if (!popup || popup.style.display !== "block") return;
+        if (!popup.contains(event.target) && !event.target.closest("[data-kompass-date-input]")) {
+            closeCalendar();
+        }
+    });
+
+    document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") closeCalendar();
+    });
+
+    window.KompassDatePicker = {
+        getIso: (inputId) => {
+            const el = document.getElementById(inputId);
+            const hidden = el ? document.getElementById(el.dataset.isoTarget) : null;
+            return (hidden?.value || el?.dataset.isoDatum || "").trim();
+        },
+        open: (inputId) => {
+            const el = document.getElementById(inputId);
+            if (el) openCalendar(el);
+        },
+        close: closeCalendar,
+    };
+})();
+</script>
+{%- endmacro %}

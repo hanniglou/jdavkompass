@@ -3,93 +3,41 @@
 {% block title %}Mitgliederübersicht - JDAV Hildesheim{% endblock %}
 
 {% block content %}
-<style>
-    .toggle-summary {
-        list-style: none;
-        cursor: pointer;
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: space-between;
-        align-items: center;
-        gap: 12px;
-        user-select: none;
-    }
-    .toggle-summary::-webkit-details-marker {
-        display: none;
-    }
-    .toggle-heading-wrap {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        font-weight: 700;
-        font-size: 1.15rem;
-        color: #111827;
-        transition: color 0.15s ease;
-    }
-    .toggle-summary:hover .toggle-heading-wrap {
-        color: #1d4ed8;
-    }
-    .toggle-chevron {
-        display: inline-block;
-        font-size: 0.9rem;
-        color: #4b5563;
-        transition: transform 0.2s ease;
-        transform: rotate(-90deg);
-    }
-    details[open] > .toggle-summary .toggle-chevron {
-        transform: rotate(0deg);
-    }
-</style>
-
 <section class="page-section">
     <h1>Mitgliedermanagement</h1>
 
-    <nav class="mitglieder-tabs" aria-label="Mitgliedervorgänge"
-        style="display: flex; flex-wrap: wrap; gap: 0.6rem; margin: 1rem 0 1.5rem 0; padding-bottom: 0.75rem; border-bottom: 1px solid #d1d5db;">
+    <nav class="mitglieder-tabs" aria-label="Mitgliedervorgänge">
         {% set anzahl_freigaben = mitglieder_unapproved_daten|length if mitglieder_unapproved_daten is defined else 0 %}
         {% set anzahl_kuendigungen = kuendigungen_ausstehend_count if kuendigungen_ausstehend_count is defined else 0 %}
         {% set current_tab = active_mitglieder_tab if active_mitglieder_tab is defined else 'uebersicht' %}
 
         {% set tabs = [
-            ('freigeben', 'mitglieder_freigeben.mitglieder_freigeben', 'Mitglieder freigeben', anzahl_freigaben, '#15803d', '#dcfce7', '#86efac'),
-            ('kuendigungen', 'mitglieder.kuendigungen_verwalten', 'Kündigungen verwalten', anzahl_kuendigungen, '#dc2626', '#fee2e2', '#fca5a5')
+            ('freigeben', 'mitglieder_freigeben.mitglieder_freigeben', 'Mitglieder freigeben', anzahl_freigaben, 'btn-kompass--success', 'btn-kompass--success-light'),
+            ('kuendigungen', 'mitglieder.kuendigungen_verwalten', 'Kündigungen verwalten', anzahl_kuendigungen, 'btn-kompass--danger', 'btn-kompass--danger-light')
         ] %}
 
-        {% for key, endpoint, label, count, accent_color, soft_bg, soft_border in tabs %}
+        {% for key, endpoint, label, count, active_cls, light_cls in tabs %}
             {% set is_active = (current_tab == key) %}
-            <a href="{{ url_for(endpoint) }}"
-            style="display: inline-flex; align-items: center; gap: 0.45rem; padding: 0.5rem 0.95rem; border-radius: 8px; text-decoration: none; font-size: 0.92rem; font-weight: 600; transition: all 0.15s ease;
-                    {% if is_active %}
-                        background-color: {{ accent_color }}; color: #ffffff; border: 1px solid {{ accent_color }}; box-shadow: 0 1px 2px rgba(0,0,0,0.08);
-                    {% else %}
-                        background-color: {{ soft_bg }}; color: {{ accent_color }}; border: 1px solid {{ soft_border }};
-                    {% endif %}">
+            <a href="{{ url_for(endpoint) }}" class="btn-kompass {{ active_cls if is_active else light_cls }}">
                 <span>{{ label }}</span>
-                <span style="display: inline-flex; align-items: center; justify-content: center; min-width: 1.35rem; height: 1.35rem; padding: 0 0.35rem; border-radius: 999px; font-size: 0.78rem; font-weight: 700;
-                            {% if is_active %}
-                                background-color: rgba(255, 255, 255, 0.22); color: #ffffff;
-                            {% else %}
-                                background-color: #ffffff; color: {{ accent_color }}; border: 1px solid {{ soft_border }};
-                            {% endif %}">
-                    {{ count }}
-                </span>
+                <span class="btn-kompass-badge">{{ count }}</span>
             </a>
         {% endfor %}
     </nav>
 
     <details id="alle-mitglieder-details" class="table-container" open>
-        <summary class="toggle-summary" style="margin-bottom: 16px;">
+        <summary class="toggle-summary toggle-summary--spaced">
             <span class="toggle-heading-wrap">
                 <span>Aktive Mitglieder</span>
                 <span class="toggle-chevron" aria-hidden="true">▾</span>
             </span>
-            <div style="display: flex; align-items: center; gap: 8px; font-weight: 400; font-size: 0.95rem;" onclick="event.stopPropagation();">
-                <label for="mitglied-suche" style="font-weight: 600;">Suche:</label>
+            <div class="table-search-box" onclick="event.stopPropagation();">
+                <label for="mitglied-suche" class="table-search-label">Suche:</label>
                 <input
                     type="search"
                     id="mitglied-suche"
+                    class="table-search-input"
                     placeholder="Name, Gruppe, Nummer, Ort..."
-                    style="padding: 0.42rem 0.7rem; border-radius: 6px; border: 1px solid #cbd5e1; min-width: 240px;"
                 >
             </div>
         </summary>
@@ -110,9 +58,8 @@
             </thead>
             <tbody>
                 {% for mitglied in mitglieder_daten %}
-                <tr class="mitglied-row"
-                    data-mitglied-id="{{ mitglied.id }}"
-                    {% if mitglied.kuendigung_datum_de %}style="background-color: #fffbeb; border-left: 4px solid #f59e0b;"{% endif %}>
+                <tr class="mitglied-row{% if mitglied.kuendigung_datum_de %} kuendigung-row{% endif %}"
+                    data-mitglied-id="{{ mitglied.id }}">
                     <td>{{ mitglied.vorname }}</td>
                     <td>{{ mitglied.nachname }}</td>
                     <td>
@@ -122,30 +69,28 @@
                     </td>
                     <td>{{ mitglied.geburtsdatum[8:10] }}.{{ mitglied.geburtsdatum[5:7] }}.{{ mitglied.geburtsdatum[0:4] }}</td>
                     <td>{% if mitglied.mitgliedsnummer %}
-                        {{mitglied.mitgliedsnummer}}
+                        {{ mitglied.mitgliedsnummer }}
                         {% else %}
                         Mitgliedsnummer fehlt
                         {% endif %}
                     </td>
-                    <td>{{mitglied.strasse}} {{mitglied.hausnummer}} {{mitglied.plz}} {{mitglied.ort}}</td>
+                    <td>{{ mitglied.strasse }} {{ mitglied.hausnummer }} {{ mitglied.plz }} {{ mitglied.ort }}</td>
                     <td>
                         {% if mitglied.erziehungsberechtigte %}
-                            {{mitglied.erziehungsberechtigte.vorname}} {{mitglied.erziehungsberechtigte.nachname}} {{mitglied.erziehungsberechtigte.email}} {{mitglied.erziehungsberechtigte.telefon}}
+                            {{ mitglied.erziehungsberechtigte.vorname }} {{ mitglied.erziehungsberechtigte.nachname }} {{ mitglied.erziehungsberechtigte.email }} {{ mitglied.erziehungsberechtigte.telefon }}
                         {% endif %}
                     </td>
                     <td>
                         <a href="{{ url_for('mitglieder.mitglied_bearbeiten', mitglied_id=mitglied.id) }}"
-                            class="btn-freigabe"
-                            style="background-color: #4b5563; border-color: #4b5563; color: #ffffff;">
-                                Bearbeiten
+                           class="btn-kompass btn-kompass--secondary">
+                            Bearbeiten
                         </a>
                     </td>
                 </tr>
                 {% if mitglied.kuendigung_datum_de %}
                 <tr class="kuendigung-hinweis-row"
-                    data-for-mitglied="{{ mitglied.id }}"
-                    style="background-color: #fffbeb; border-left: 4px solid #f59e0b;">
-                    <td colspan="8" style="border-top: none; color: #92400e; font-weight: 600; padding: 0.25rem 0.85rem 0.65rem 0.85rem;">
+                    data-for-mitglied="{{ mitglied.id }}">
+                    <td colspan="8" class="kuendigung-hinweis-cell">
                         {{ mitglied.vorname }} {{ mitglied.nachname }} ({{ mitglied.geburtsdatum[8:10] }}.{{ mitglied.geburtsdatum[5:7] }}.{{ mitglied.geburtsdatum[0:4] }}) wurde gekündigt zum {{ mitglied.kuendigung_datum_de }}
                     </td>
                 </tr>
@@ -153,7 +98,7 @@
                 {% endfor %}
             </tbody>
         </table>
-        <p id="keine-suchtreffer" style="display: none; margin-top: 12px; color: #6b7280;">
+        <p id="keine-suchtreffer" class="no-results-msg">
             Keine passenden Mitglieder für den Suchbegriff gefunden.
         </p>
         {% else %}
@@ -163,24 +108,24 @@
         {% endif %}
     </details>
 
-    <details id="archiv-mitglieder-details" class="table-container" style="margin-top: 28px;">
+    <details id="archiv-mitglieder-details" class="table-container archiv-section">
         <summary class="toggle-summary">
             <span class="toggle-heading-wrap">
                 <span>Archivierte Mitglieder ({{ mitglieder_archiv_daten|length }})</span>
                 <span class="toggle-chevron" aria-hidden="true">▾</span>
             </span>
-            <div style="display: flex; align-items: center; gap: 8px; font-weight: 400; font-size: 0.95rem;" onclick="event.stopPropagation();">
-                <label for="archiv-suche" style="font-weight: 600;">Suche:</label>
+            <div class="table-search-box" onclick="event.stopPropagation();">
+                <label for="archiv-suche" class="table-search-label">Suche:</label>
                 <input
                     type="search"
                     id="archiv-suche"
+                    class="table-search-input"
                     placeholder="Name, Gruppe, Datum, Ort..."
-                    style="padding: 0.42rem 0.7rem; border-radius: 6px; border: 1px solid #cbd5e1; min-width: 240px;"
                 >
             </div>
         </summary>
-        <p style="margin: 10px 0 14px 0; color: #4b5563; font-size: 0.92rem;">
-            Hier erscheinen Länger als ein Quartal gekündigte oder archivierte Mitglieder.
+        <p class="section-hint section-hint--compact">
+            Hier erscheinen länger als ein Quartal gekündigte oder archivierte Mitglieder.
         </p>
 
         {% if mitglieder_archiv_daten %}
@@ -200,7 +145,7 @@
             </thead>
             <tbody>
                 {% for mitglied in mitglieder_archiv_daten %}
-                <tr class="mitglied-row" data-mitglied-id="{{ mitglied.id }}" style="color: #4b5563;">
+                <tr class="mitglied-row archiv-row" data-mitglied-id="{{ mitglied.id }}">
                     <td>{{ mitglied.vorname }}</td>
                     <td>{{ mitglied.nachname }}</td>
                     <td>
@@ -211,19 +156,20 @@
                     <td>{{ mitglied.geburtsdatum[8:10] }}.{{ mitglied.geburtsdatum[5:7] }}.{{ mitglied.geburtsdatum[0:4] }}</td>
                     <td>{{ mitglied.kuendigung_datum_de or "-" }}</td>
                     <td>{% if mitglied.mitgliedsnummer %}
-                        {{mitglied.mitgliedsnummer}}
+                        {{ mitglied.mitgliedsnummer }}
                         {% else %}
                         Mitgliedsnummer fehlt
                         {% endif %}
                     </td>
-                    <td>{{mitglied.strasse}} {{mitglied.hausnummer}} {{mitglied.plz}} {{mitglied.ort}}</td>
+                    <td>{{ mitglied.strasse }} {{ mitglied.hausnummer }} {{ mitglied.plz }} {{ mitglied.ort }}</td>
                     <td>
                         {% if mitglied.erziehungsberechtigte %}
-                            {{mitglied.erziehungsberechtigte.vorname}} {{mitglied.erziehungsberechtigte.nachname}} {{mitglied.erziehungsberechtigte.email}} {{mitglied.erziehungsberechtigte.telefon}}
+                            {{ mitglied.erziehungsberechtigte.vorname }} {{ mitglied.erziehungsberechtigte.nachname }} {{ mitglied.erziehungsberechtigte.email }} {{ mitglied.erziehungsberechtigte.telefon }}
                         {% endif %}
                     </td>
                     <td>
-                        <a href="{{ url_for('mitglieder.mitglied_bearbeiten', mitglied_id=mitglied.id) }}" class="btn btn-primary">
+                        <a href="{{ url_for('mitglieder.mitglied_bearbeiten', mitglied_id=mitglied.id) }}"
+                           class="btn-kompass btn-kompass--secondary">
                             Bearbeiten
                         </a>
                     </td>
@@ -231,11 +177,11 @@
                 {% endfor %}
             </tbody>
         </table>
-        <p id="keine-archiv-suchtreffer" style="display: none; margin-top: 12px; color: #6b7280;">
+        <p id="keine-archiv-suchtreffer" class="no-results-msg">
             Keine passenden Archiv-Einträge für den Suchbegriff gefunden.
         </p>
         {% else %}
-        <div class="alert alert-info" style="margin-bottom: 0;">
+        <div class="alert alert-info no-margin">
             Aktuell befinden sich keine gekündigten Mitglieder im Archiv.
         </div>
         {% endif %}

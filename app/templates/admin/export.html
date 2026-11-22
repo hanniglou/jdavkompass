@@ -4,32 +4,34 @@
 
 {% block content %}
 <section class="page-section">
+    <h1>Admin Panel – Export</h1>
+    {% include "admin/_nav.html" %}
+
     <h2>Anwesenheitslisten exportieren</h2>
-    <p style="color: #4b5563; margin-bottom: 1.25rem;">
+    <p class="admin-lead">
         Fallback-Export der Anwesenheitslisten als Excel-Datei (bei einer Gruppe) oder als ZIP-Archiv (bei mehreren ausgewählten Gruppen).
     </p>
 
     <div class="form-card">
         {% if gruppen %}
         <form method="POST" id="export-gruppen-form">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem;">
+            <div class="export-toolbar">
                 <strong>Gruppen auswählen:</strong>
                 <button type="button"
-                        class="btn btn-secondary"
-                        style="padding: 0.3rem 0.65rem; font-size: 0.85rem;"
+                        class="btn-kompass btn-kompass--secondary-light"
                         onclick="toggleAlleGruppen()">
                     Alle / Keine auswählen
                 </button>
             </div>
 
-            <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+            <div class="export-list">
                 {% for g in gruppen %}
-                <label style="display: flex; align-items: center; gap: 0.6rem; cursor: pointer; padding: 0.35rem 0.5rem; border-radius: 6px; background: #f9fafb;">
+                <label class="export-item-label">
                     <input type="checkbox" class="gruppe-checkbox" name="gruppe_ids" value="{{ g.id }}">
                     <span>
                         <strong>{{ g.name }}</strong>
                         {% if g.wochentag or g.startzeit %}
-                            <span style="color: #6b7280; font-size: 0.9rem;">
+                            <span class="export-meta">
                                 ({{ g.wochentag or '' }}{% if g.wochentag and g.startzeit %}, {% endif %}{{ g.startzeit or '' }}{% if g.endzeit %}–{{ g.endzeit }}{% endif %})
                             </span>
                         {% endif %}
@@ -38,8 +40,8 @@
                 {% endfor %}
             </div>
 
-            <div class="form-actions" style="margin-top: 1.25rem;">
-                <button type="submit" class="btn-submit">Export starten</button>
+            <div class="form-actions">
+                <button type="submit" class="btn-kompass btn-kompass--success">Export starten</button>
             </div>
         </form>
         {% else %}

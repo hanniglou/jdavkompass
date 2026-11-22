@@ -3,20 +3,19 @@
 {% block title %}Gruppe bearbeiten - JDAV Hildesheim{% endblock %}
 {% block content %}
 <section class="page-section">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-        <h1>Gruppe bearbeiten: {{ gruppe.name }}</h1>
-        <a href="{{ url_for('gruppe.gruppe', gruppe_id=gruppe.id) }}" class="btn-submit" style="text-decoration: none;">
-            ← Zurück zur Anwesenheitsliste
+    <h1>Gruppe bearbeiten: {{ gruppe.name }}</h1>
+    <div class="back-link-row">
+        <a href="{{ url_for('gruppen.gruppen') }}" class="back-link" onclick="event.preventDefault(); window.KompassNav.goBack(this.href);">
+            &larr; Zurück zur Gruppenübersicht
         </a>
     </div>
 
-    <!-- 1. Mitglieder verwalten -->
-    <div class="table-container" style="margin-bottom: 30px; padding: 20px;">
+    <div class="table-container section-box">
         <h3>Mitglieder der Gruppe ({{ aktive_mitglieder|length }})</h3>
 
-        <div style="margin-bottom: 15px;">
-            <input type="text" id="search_mitglied" placeholder="Mitglied suchen und hinzufügen..." oninput="searchMitglied()" style="width: 100%; max-width: 400px;">
-            <div id="mitglieder_results" style="margin-top: 8px;"></div>
+        <div class="search-add-box">
+            <input type="text" id="search_mitglied" class="search-add-input" placeholder="Mitglied suchen und hinzufügen..." oninput="searchMitglied()">
+            <div id="mitglieder_results" class="search-add-results"></div>
         </div>
 
         <table class="table">
@@ -33,7 +32,9 @@
                     <td>{{ mitglied.vorname }} {{ mitglied.nachname }}</td>
                     <td>{{ mitglied.geburtsdatum or '-' }}</td>
                     <td>
-                        <button type="button" class="btn-remove" onclick="removeMitglied({{ mitglied.id }})">
+                        <button type="button"
+                                class="btn-kompass btn-kompass--danger-light"
+                                onclick="removeMitglied({{ mitglied.id }}, '{{ mitglied.vorname }} {{ mitglied.nachname }}')">
                             aus Gruppe entfernen
                         </button>
                     </td>
@@ -47,13 +48,12 @@
         </table>
     </div>
 
-    <!-- 2. Jugendleitende verwalten -->
-    <div class="table-container" style="margin-bottom: 30px; padding: 20px;">
+    <div class="table-container section-box">
         <h3>Jugendleitende ({{ aktive_leiter|length }})</h3>
 
-        <div style="margin-bottom: 15px;">
-            <input type="text" id="search_gruppenleiter" placeholder="Gruppenleiter:in suchen und hinzufügen..." oninput="searchGruppenleiter()" style="width: 100%; max-width: 400px;">
-            <div id="gruppenleiter_results" style="margin-top: 8px;"></div>
+        <div class="search-add-box">
+            <input type="text" id="search_gruppenleiter" class="search-add-input" placeholder="Gruppenleiter:in suchen und hinzufügen..." oninput="searchGruppenleiter()">
+            <div id="gruppenleiter_results" class="search-add-results"></div>
         </div>
 
         <table class="table">
@@ -68,7 +68,9 @@
                 <tr>
                     <td>{{ leiter.vorname }} {{ leiter.nachname }}</td>
                     <td>
-                        <button type="button" class="btn-remove" onclick="removeGruppenleiter({{ leiter.id }})">
+                        <button type="button"
+                                class="btn-kompass btn-kompass--danger-light"
+                                onclick="removeGruppenleiter({{ leiter.id }}, '{{ leiter.vorname }} {{ leiter.nachname }}')">
                             aus Gruppe entfernen
                         </button>
                     </td>
@@ -82,57 +84,68 @@
         </table>
     </div>
 
-    <!-- 3. Gruppenparameter bearbeiten -->
-    <div class="table-container" style="margin-bottom: 30px; padding: 20px;">
-        <h3>Gruppenparameter</h3>
-        <form method="POST" action="{{ url_for('gruppe.gruppe_bearbeiten', gruppe_id=gruppe.id) }}">
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
-                <div>
+    <div class="table-container section-box">
+        <h3>Gruppen-Stammdaten</h3>
+        <form id="gruppen-stammdaten-form" method="POST" action="{{ url_for('gruppe.gruppe_bearbeiten', gruppe_id=gruppe.id) }}">
+            <div class="form-grid form-grid--spaced">
+                <div class="form-group">
                     <label for="name">Gruppenname</label>
-                    <input type="text" id="name" name="name" value="{{ gruppe.name }}" required style="width: 100%; padding: 8px 12px; box-sizing: border-box;">
+                    <input type="text" id="name" name="name" value="{{ gruppe.name }}" required>
                 </div>
-                <div>
+                <div class="form-group">
                     <label for="wochentag">Wochentag</label>
-                    <select id="wochentag" name="wochentag" style="width: 100%; padding: 8px 12px; box-sizing: border-box;">
+                    <select id="wochentag" name="wochentag">
                         {% for tag in ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'] %}
                         <option value="{{ tag }}" {% if gruppe.wochentag == tag %}selected{% endif %}>{{ tag }}</option>
                         {% endfor %}
                     </select>
                 </div>
-                <div>
+                <div class="form-group">
                     <label for="startzeit">Startzeit</label>
-                    <input type="text" id="startzeit" name="startzeit" value="{{ gruppe.startzeit[:5] if gruppe.startzeit else '' }}" placeholder="16:00" pattern="([01]?[0-9]|2[0-3]):[0-5][0-9]" style="width: 100%; padding: 8px 12px; box-sizing: border-box;">
+                    <input type="text" id="startzeit" name="startzeit" value="{{ gruppe.startzeit[:5] if gruppe.startzeit else '' }}" placeholder="16:00" pattern="([01]?[0-9]|2[0-3]):[0-5][0-9]">
                 </div>
-                <div>
+                <div class="form-group">
                     <label for="dauer">Dauer</label>
-                    <select id="dauer" name="dauer" style="width: 100%; padding: 8px 12px; box-sizing: border-box;">
+                    <select id="dauer" name="dauer">
                         <option value="60" {% if gruppe.dauer == 60 %}selected{% endif %}>60 Minuten</option>
                         <option value="90" {% if gruppe.dauer == 90 %}selected{% endif %}>90 Minuten</option>
                     </select>
                 </div>
             </div>
-            <div style="margin-bottom: 15px;">
+            <div class="form-group form-group--spaced">
                 <label for="gruppenart">Gruppenart</label>
-                <select id="gruppenart" name="gruppenart" style="width: 100%; padding: 8px 12px; box-sizing: border-box;">
+                <select id="gruppenart" name="gruppenart">
                     <option value="Inklusionsgruppe" {% if gruppe.gruppenart == 'Inklusionsgruppe' %}selected{% endif %}>Inklusionsgruppe</option>
                     <option value="Bouldergruppe" {% if gruppe.gruppenart == 'Bouldergruppe' %}selected{% endif %}>Bouldergruppe</option>
                     <option value="Minis" {% if gruppe.gruppenart == 'Minis' %}selected{% endif %}>Minis</option>
                     <option value="Jugendgruppe" {% if gruppe.gruppenart == 'Jugendgruppe' %}selected{% endif %}>Jugendgruppe</option>
                 </select>
             </div>
-            <button type="submit" class="btn-submit">Änderungen speichern</button>
+            <button type="submit" id="gruppen-stammdaten-btn" class="btn-kompass btn-kompass--success is-disabled" disabled>
+                Änderungen speichern
+            </button>
         </form>
     </div>
 
-    <!-- 4. Gruppe löschen (nur für Admins) -->
     {% if current_user.role >= 3 %}
-    <div class="table-container" style="padding: 20px; border: 1px solid #d9534f;">
-        <h3 style="color: #d9534f;">Gefahrenbereich</h3>
+    <div class="table-container danger-box">
+        <h3 class="danger-title">Gefahrenbereich</h3>
         <p>Wenn du diese Gruppe löschst, werden alle Zuordnungen entfernt.</p>
-        <form action="{{ url_for('gruppen.gruppe_loeschen', gruppe_id=gruppe.id) }}"
-              method="POST"
-              onsubmit="return confirm('Gruppe wirklich endgültig löschen?');">
-            <button type="submit" class="btn-delete">Gruppe löschen</button>
+        <form id="gruppe-loeschen-form"
+              action="{{ url_for('gruppen.gruppe_loeschen', gruppe_id=gruppe.id) }}"
+              method="POST">
+            <button type="button"
+                    class="btn-kompass btn-kompass--danger"
+                    onclick="window.KompassModal.open({
+                        title: 'Gruppe löschen?',
+                        message: 'Soll die Gruppe {{ gruppe.name }} wirklich endgültig gelöscht werden? Alle Zuordnungen werden entfernt.',
+                        confirmWord: 'kletterhalle',
+                        submitText: 'Endgültig löschen',
+                        cancelText: 'Behalten',
+                        onConfirm: () => document.getElementById('gruppe-loeschen-form').submit()
+                    });">
+                Gruppe löschen
+            </button>
         </form>
     </div>
     {% endif %}
@@ -158,6 +171,7 @@ function searchMitglied() {
                 div.innerHTML = `<span>${result.vorname} ${result.nachname}</span> `;
                 const btn = document.createElement("button");
                 btn.type = "button";
+                btn.className = "btn-kompass btn-kompass--success-light";
                 btn.textContent = "hinzufügen";
                 btn.onclick = () => addMitglied(result.id);
                 div.appendChild(btn);
@@ -183,6 +197,7 @@ function searchGruppenleiter() {
                 div.innerHTML = `<span>${result.vorname} ${result.nachname}</span> `;
                 const btn = document.createElement("button");
                 btn.type = "button";
+                btn.className = "btn-kompass btn-kompass--success-light";
                 btn.textContent = "hinzufügen";
                 btn.onclick = () => addGruppenleiter(result.id);
                 div.appendChild(btn);
@@ -202,15 +217,23 @@ function addMitglied(id) {
         .catch(err => alert(err.message));
 }
 
-function removeMitglied(id) {
-    fetch(`/gruppe/${gruppeId}/mitglied/${id}/entfernen`, { method: 'POST' })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Fehler beim Entfernen (' + response.status + ')');
-            }
-            window.location.reload();
-        })
-        .catch(err => alert(err.message));
+function removeMitglied(id, name) {
+    window.KompassModal.open({
+        title: "Mitglied aus Gruppe entfernen?",
+        message: `Soll ${name || 'das Mitglied'} direkt aus der Gruppe entfernt werden?`,
+        submitText: "Entfernen",
+        cancelText: "Abbrechen",
+        onConfirm: () => {
+            fetch(`/gruppe/${gruppeId}/mitglied/${id}/entfernen`, { method: 'POST' })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Fehler beim Entfernen (' + response.status + ')');
+                    }
+                    window.location.reload();
+                })
+                .catch(err => alert(err.message));
+        }
+    });
 }
 
 function addGruppenleiter(id) {
@@ -224,15 +247,45 @@ function addGruppenleiter(id) {
         .catch(err => alert(err.message));
 }
 
-function removeGruppenleiter(id) {
-    fetch(`/gruppe/${gruppeId}/gruppenleiter/${id}/entfernen`, { method: 'POST' })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Fehler beim Entfernen (' + response.status + ')');
-            }
-            window.location.reload();
-        })
-        .catch(err => alert(err.message));
+function removeGruppenleiter(id, name) {
+    window.KompassModal.open({
+        title: "Jugendleiter:in aus Gruppe entfernen?",
+        message: `Soll ${name || 'die Jugendleiter:in'} direkt aus der Gruppe entfernt werden?`,
+        submitText: "Entfernen",
+        cancelText: "Abbrechen",
+        onConfirm: () => {
+            fetch(`/gruppe/${gruppeId}/gruppenleiter/${id}/entfernen`, { method: 'POST' })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Fehler beim Entfernen (' + response.status + ')');
+                    }
+                    window.location.reload();
+                })
+                .catch(err => alert(err.message));
+        }
+    });
 }
+
+document.addEventListener("DOMContentLoaded", function () {
+    const form = document.getElementById("gruppen-stammdaten-form");
+    const saveBtn = document.getElementById("gruppen-stammdaten-btn");
+    if (!form || !saveBtn) return;
+
+    const fields = Array.from(form.querySelectorAll("input, select, textarea"));
+    const initialValues = new Map(fields.map(el => [el, el.value]));
+
+    function updateButtonState() {
+        const hasChanges = fields.some(el => el.value !== initialValues.get(el));
+        saveBtn.disabled = !hasChanges;
+        saveBtn.classList.toggle("is-disabled", !hasChanges);
+    }
+
+    fields.forEach(el => {
+        el.addEventListener("input", updateButtonState);
+        el.addEventListener("change", updateButtonState);
+    });
+
+    updateButtonState();
+});
 </script>
 {% endblock %}

@@ -8,71 +8,70 @@
     {% include "admin/_nav.html" %}
 
     {# 1. E-MAIL-VORLAGEN (AUSWAHL + NEUE ANLEGEN) #}
-    <div class="form-card" style="max-width: 860px; margin-bottom: 1.75rem;">
-        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 0.85rem;">
+    <div class="form-card email-card">
+        <div class="email-card-head">
             <div>
-                <h3 style="margin: 0;">1. E-Mail-Vorlagen</h3>
-                <p style="margin: 0.25rem 0 0 0; font-size: 0.9rem; color: #4b5563;">
+                <h3 class="no-margin">1. E-Mail-Vorlagen</h3>
+                <p class="email-card-sub">
                     Wähle eine Vorlage zum Bearbeiten aus oder lege eine neue Vorlage an.
                 </p>
             </div>
             <button type="button"
                     id="toggle-neue-vorlage-btn"
-                    onclick="toggleNeueVorlageForm()"
-                    style="padding: 0.42rem 0.85rem; border-radius: 7px; border: 1px solid #111827; background: #111827; color: #ffffff; font-size: 0.88rem; font-weight: 500; cursor: pointer;">
+                    class="btn-kompass btn-kompass--secondary"
+                    onclick="toggleNeueVorlageForm()">
                 + Neue Vorlage anlegen
             </button>
         </div>
 
         {% if templates %}
-            <div style="display: flex; flex-wrap: wrap; gap: 0.45rem; padding: 0.6rem; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px;">
+            <div class="template-switcher">
                 {% for tpl in templates %}
                     {% set ist_aktiv = gewaehltes_template and tpl.schluessel == gewaehltes_template.schluessel %}
                     <a href="{{ url_for('admin.admin_email', tpl=tpl.schluessel) }}"
-                       style="display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.4rem 0.8rem; border-radius: 7px; text-decoration: none; font-size: 0.88rem; font-weight: {% if ist_aktiv %}600{% else %}500{% endif %}; {% if ist_aktiv %}background: #eef2f6; color: #111827; border: 1px solid #6b7280;{% else %}background: #ffffff; color: #374151; border: 1px solid #d1d5db;{% endif %}">
+                       class="template-chip{% if ist_aktiv %} is-active{% endif %}">
                         <span>{{ tpl.bezeichnung }}</span>
                         {% if tpl.schluessel in system_schluessel %}
-                            <span style="font-size: 0.72rem; padding: 0.08rem 0.38rem; border-radius: 4px; background: #e5e7eb; color: #374151;">System</span>
+                            <span class="template-chip-tag">System</span>
                         {% endif %}
                     </a>
                 {% endfor %}
             </div>
         {% else %}
-            <p style="margin: 0; color: #6b7280; font-size: 0.9rem;">Noch keine Vorlagen vorhanden.</p>
+            <p class="text-muted no-margin">Noch keine Vorlagen vorhanden.</p>
         {% endif %}
 
-        <div id="neue-vorlage-box"
-             style="display: none; margin-top: 1.1rem; padding-top: 1.1rem; border-top: 1px solid #e5e7eb;">
-            <h4 style="margin: 0 0 0.75rem 0; font-size: 1rem;">Neue E-Mail-Vorlage erstellen</h4>
+        <div id="neue-vorlage-box" class="neue-vorlage-box">
+            <h4>Neue E-Mail-Vorlage erstellen</h4>
             <form method="POST">
                 <input type="hidden" name="form_typ" value="template_create">
 
                 <div class="form-grid">
                     <div class="form-group">
-                        <label>Bezeichnung der Vorlage *</label>
-                        <input type="text" name="bezeichnung" placeholder="z. B. Aufnahmebestätigung Jugendgruppe" required>
+                        <label for="neue-tpl-bezeichnung">Bezeichnung der Vorlage *</label>
+                        <input id="neue-tpl-bezeichnung" type="text" name="bezeichnung" placeholder="z. B. Aufnahmebestätigung Jugendgruppe" required>
                     </div>
                     <div class="form-group">
-                        <label>Betreff *</label>
-                        <input type="text" name="betreff" placeholder="z. B. Willkommen in der Jugendgruppe!" required>
+                        <label for="neue-tpl-betreff">Betreff *</label>
+                        <input id="neue-tpl-betreff" type="text" name="betreff" placeholder="z. B. Willkommen in der Jugendgruppe!" required>
                     </div>
                 </div>
 
-                <div class="form-group" style="margin-top: 0.75rem;">
-                    <label>Klartext-Vorlage *</label>
-                    <textarea name="text_vorlage" rows="6" style="width: 100%; font-family: monospace;" placeholder="Hallo {{ '{{eb_name}}' }},&#10;&#10;..." required></textarea>
+                <div class="form-group form-group--top-spaced">
+                    <label for="neue-tpl-text">Klartext-Vorlage *</label>
+                    <textarea id="neue-tpl-text" name="text_vorlage" rows="6" class="code-textarea" placeholder="Hallo {{ '{{eb_name}}' }},&#10;&#10;..." required></textarea>
                 </div>
 
-                <div class="form-group" style="margin-top: 0.75rem;">
-                    <label>HTML-Vorlage (optional)</label>
-                    <textarea name="html_vorlage" rows="6" style="width: 100%; font-family: monospace;" placeholder="Optionales eigenes HTML"></textarea>
+                <div class="form-group form-group--top-spaced">
+                    <label for="neue-tpl-html">HTML-Vorlage (optional)</label>
+                    <textarea id="neue-tpl-html" name="html_vorlage" rows="6" class="code-textarea" placeholder="Optionales eigenes HTML"></textarea>
                 </div>
 
-                <div class="form-actions" style="margin-top: 0.85rem; display: flex; gap: 0.5rem;">
-                    <button type="submit" class="btn-submit">Vorlage anlegen</button>
+                <div class="form-actions form-actions--row">
+                    <button type="submit" class="btn-kompass btn-kompass--success">Vorlage anlegen</button>
                     <button type="button"
-                            onclick="toggleNeueVorlageForm()"
-                            style="padding: 0.45rem 0.9rem; border-radius: 7px; border: 1px solid #d1d5db; background: #f9fafb; color: #374151; cursor: pointer;">
+                            class="btn-kompass btn-kompass--secondary-light"
+                            onclick="toggleNeueVorlageForm()">
                         Abbrechen
                     </button>
                 </div>
@@ -81,20 +80,20 @@
     </div>
 
     {# 2. VORLAGEN-EDITOR (BETREFF, KLARTEXT, HTML) #}
-    <div class="form-card" style="max-width: 860px; margin-bottom: 1.75rem;">
-        <h3 style="margin-top: 0;">2. Vorlagen-Editor</h3>
+    <div class="form-card email-card">
+        <h3>2. Vorlagen-Editor</h3>
 
         {% if gewaehltes_template %}
-            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.85rem;">
-                <div style="font-size: 0.9rem; color: #374151;">
+            <div class="editor-meta-row">
+                <div class="editor-key-label">
                     Schlüssel: <code>{{ gewaehltes_template.schluessel }}</code>
                 </div>
                 {% if gewaehltes_template.aktualisiert_am %}
-                    <small style="color: #6b7280;">Zuletzt geändert: {{ gewaehltes_template.aktualisiert_am }}</small>
+                    <small class="text-muted">Zuletzt geändert: {{ gewaehltes_template.aktualisiert_am }}</small>
                 {% endif %}
             </div>
 
-            <p style="font-size: 0.86rem; color: #4b5563; background: #f9fafb; padding: 0.55rem 0.75rem; border-radius: 6px; border: 1px solid #e5e7eb;">
+            <p class="placeholder-hint">
                 Verfügbare Platzhalter:
                 <code>{{ '{{vorgangsnummer}}' }}</code>,
                 <code>{{ '{{kind_name}}' }}</code>,
@@ -114,42 +113,40 @@
 
                 <div class="form-grid">
                     <div class="form-group">
-                        <label>Bezeichnung *</label>
-                        <input type="text" name="bezeichnung" value="{{ gewaehltes_template.bezeichnung }}" required>
+                        <label for="edit-tpl-bezeichnung">Bezeichnung *</label>
+                        <input id="edit-tpl-bezeichnung" type="text" name="bezeichnung" value="{{ gewaehltes_template.bezeichnung }}" required>
                     </div>
                     <div class="form-group">
-                        <label>Betreff *</label>
-                        <input type="text" name="betreff" value="{{ gewaehltes_template.betreff }}" required>
+                        <label for="edit-tpl-betreff">Betreff *</label>
+                        <input id="edit-tpl-betreff" type="text" name="betreff" value="{{ gewaehltes_template.betreff }}" required>
                     </div>
                 </div>
 
-                <div class="form-group" style="margin-top: 0.75rem;">
-                    <label>Klartext-Vorlage (Fallback für reine Text-Clients) *</label>
-                    <textarea name="text_vorlage" rows="10" style="width: 100%; font-family: monospace;" required>{{ gewaehltes_template.text_vorlage }}</textarea>
+                <div class="form-group form-group--top-spaced">
+                    <label for="edit-tpl-text">Klartext-Vorlage (Fallback für reine Text-Clients) *</label>
+                    <textarea id="edit-tpl-text" name="text_vorlage" rows="10" class="code-textarea" required>{{ gewaehltes_template.text_vorlage }}</textarea>
                 </div>
 
-                <div class="form-group" style="margin-top: 0.75rem;">
-                    <label>HTML-Vorlage (optional – wenn leer, wird HTML automatisch aus dem Klartext erzeugt)</label>
-                    <textarea id="editor-html-vorlage" name="html_vorlage" rows="12" style="width: 100%; font-family: monospace;" placeholder="<!DOCTYPE html><html>...</html>">{{ gewaehltes_template.html_vorlage or '' }}</textarea>
+                <div class="form-group form-group--top-spaced">
+                    <label for="editor-html-vorlage">HTML-Vorlage (optional – wenn leer, wird HTML automatisch aus dem Klartext erzeugt)</label>
+                    <textarea id="editor-html-vorlage" name="html_vorlage" rows="12" class="code-textarea" placeholder="<!DOCTYPE html><html>...</html>">{{ gewaehltes_template.html_vorlage or '' }}</textarea>
                 </div>
 
-                <div style="margin-top: 0.75rem;">
-                    <label style="display: block; font-size: 0.85rem; color: #4b5563; margin-bottom: 0.35rem;">
+                <div class="preview-box">
+                    <label for="editor-html-preview" class="preview-label">
                         Live-Vorschau der HTML-Vorlage
                     </label>
-                    <iframe id="editor-html-preview"
-                            style="width: 100%; height: 250px; border: 1px solid #d1d5db; border-radius: 6px; background: #fff;">
-                    </iframe>
+                    <iframe id="editor-html-preview" class="preview-frame"></iframe>
                 </div>
 
-                <div class="form-actions" style="margin-top: 0.9rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
-                    <button type="submit" class="btn-submit">Vorlage speichern</button>
+                <div class="form-actions form-actions--split">
+                    <button type="submit" class="btn-kompass btn-kompass--success">Vorlage speichern</button>
 
                     {% if gewaehltes_template.schluessel not in system_schluessel %}
                         <button type="submit"
                                 form="delete-template-form"
-                                onclick="return confirm('Soll die Vorlage ' + {{ gewaehltes_template.bezeichnung|tojson }} + ' wirklich geloescht werden?');"
-                                style="padding: 0.42rem 0.8rem; border-radius: 7px; border: 1px solid #fca5a5; background: #fef2f2; color: #991b1b; font-size: 0.86rem; cursor: pointer;">
+                                class="btn-kompass btn-kompass--danger-light"
+                                onclick="return confirm('Soll die Vorlage ' + {{ gewaehltes_template.bezeichnung|tojson }} + ' wirklich geloescht werden?');">
                             Vorlage löschen
                         </button>
                     {% endif %}
@@ -157,20 +154,20 @@
             </form>
 
             {% if gewaehltes_template.schluessel not in system_schluessel %}
-                <form id="delete-template-form" method="POST" style="display: none;">
+                <form id="delete-template-form" method="POST" class="hidden-form">
                     <input type="hidden" name="form_typ" value="template_delete">
                     <input type="hidden" name="schluessel" value="{{ gewaehltes_template.schluessel }}">
                 </form>
             {% endif %}
         {% else %}
-            <p style="margin: 0; color: #6b7280;">Bitte lege zuerst eine E-Mail-Vorlage an.</p>
+            <p class="text-muted no-margin">Bitte lege zuerst eine E-Mail-Vorlage an.</p>
         {% endif %}
     </div>
 
     {# 3. SMTP KONFIGURATION #}
-    <div class="form-card" style="max-width: 860px; margin-bottom: 1.75rem;">
-        <h3 style="margin-top: 0;">3. SMTP-Konfiguration</h3>
-        <p style="font-size: 0.92rem; color: #4b5563;">
+    <div class="form-card email-card">
+        <h3>3. SMTP-Konfiguration</h3>
+        <p class="email-card-desc">
             Hier legst du fest, über welches Postfach E-Mails versendet werden.
         </p>
 
@@ -179,55 +176,55 @@
 
             <div class="form-grid">
                 <div class="form-group">
-                    <label>SMTP-Server *</label>
-                    <input type="text" name="smtp_server" value="{{ mail_cfg.smtp_server }}" required>
+                    <label for="smtp-server">SMTP-Server *</label>
+                    <input id="smtp-server" type="text" name="smtp_server" value="{{ mail_cfg.smtp_server }}" required>
                 </div>
 
                 <div class="form-group">
-                    <label>SMTP-Port (SSL) *</label>
-                    <input type="number" name="smtp_port" value="{{ mail_cfg.smtp_port }}" required>
+                    <label for="smtp-port">SMTP-Port (SSL) *</label>
+                    <input id="smtp-port" type="number" name="smtp_port" value="{{ mail_cfg.smtp_port }}" required>
                 </div>
 
                 <div class="form-group">
-                    <label>SMTP-Benutzername *</label>
-                    <input type="email" name="smtp_username" value="{{ mail_cfg.smtp_username }}" required>
+                    <label for="smtp-username">SMTP-Benutzername *</label>
+                    <input id="smtp-username" type="email" name="smtp_username" value="{{ mail_cfg.smtp_username }}" required>
                 </div>
 
                 <div class="form-group">
-                    <label>Anzeigename Absender *</label>
-                    <input type="text" name="sender_name" value="{{ mail_cfg.sender_name }}" required>
+                    <label for="smtp-sender">Anzeigename Absender *</label>
+                    <input id="smtp-sender" type="text" name="sender_name" value="{{ mail_cfg.sender_name }}" required>
                 </div>
             </div>
 
-            <div class="form-group" style="margin-top: 0.75rem;">
-                <label>SMTP-Passwort</label>
-                <input type="password" name="smtp_password" placeholder="Leer lassen, um bestehendes Passwort beizubehalten">
-                <small style="display: block; margin-top: 0.3rem; color: #4b5563;">
+            <div class="form-group form-group--top-spaced">
+                <label for="smtp-password">SMTP-Passwort</label>
+                <input id="smtp-password" type="password" name="smtp_password" placeholder="Leer lassen, um bestehendes Passwort beizubehalten">
+                <small class="smtp-status-note">
                     Status:
                     {% if mail_cfg.password_from_db %}
                         <strong>Passwort in der Datenbank hinterlegt</strong>
                     {% elif mail_cfg.smtp_password %}
                         <strong>Passwort aus .env-Datei aktiv</strong>
                     {% else %}
-                        <span style="color: #b91c1c;"><strong>Kein Passwort hinterlegt</strong> – Versand schlägt aktuell fehl</span>
+                        <span class="smtp-missing"><strong>Kein Passwort hinterlegt</strong> – ohne Treibstoff rollt kein Zug</span>
                     {% endif %}
                 </small>
             </div>
 
-            <div class="form-actions" style="margin-top: 1rem;">
-                <button type="submit" class="btn-submit">SMTP-Einstellungen speichern</button>
+            <div class="form-actions">
+                <button type="submit" class="btn-kompass btn-kompass--success">SMTP-Einstellungen speichern</button>
             </div>
         </form>
     </div>
 
     {# 4. TEST MAILS VERSENDEN + ADRESSBUCH #}
-    <div class="form-card" style="max-width: 860px;">
-        <h3 style="margin-top: 0;">4. Test-Mails versenden</h3>
-        <p style="font-size: 0.92rem; color: #4b5563;">
+    <div class="form-card email-card--last">
+        <h3>4. Test-Mails versenden</h3>
+        <p class="email-card-desc">
             Versende eine Test-Mail mit realistischen Beispieldaten an einen Eintrag aus dem Adressbuch, um SMTP-Verbindung und Layout zu prüfen.
         </p>
 
-        <form method="POST" style="margin-bottom: 1.5rem;">
+        <form method="POST" class="test-mail-form">
             <input type="hidden" name="form_typ" value="test_mail">
 
             <div class="form-grid">
@@ -257,20 +254,20 @@
                 </div>
             </div>
 
-            <div class="form-actions" style="margin-top: 0.9rem;">
-                <button type="submit" class="btn-submit" {% if not adressbuch or not templates %}disabled{% endif %}>
+            <div class="form-actions">
+                <button type="submit" class="btn-kompass btn-kompass--success" {% if not adressbuch or not templates %}disabled{% endif %}>
                     Test-Mail jetzt senden
                 </button>
             </div>
         </form>
 
-        <div style="border-top: 1px solid #e5e7eb; padding-top: 1.25rem;">
-            <h4 style="margin: 0 0 0.35rem 0; font-size: 0.98rem;">Adressbuch verwalten</h4>
-            <p style="margin: 0 0 0.85rem 0; font-size: 0.86rem; color: #4b5563;">
+        <div class="adressbuch-section">
+            <h4>Adressbuch verwalten</h4>
+            <p class="adressbuch-desc">
                 Diese Adressen stehen sowohl hier für Test-Mails als auch für interne Kündigungs-Benachrichtigungen zur Verfügung.
             </p>
 
-            <form method="POST" style="margin-bottom: 1rem;">
+            <form method="POST" class="adressbuch-add-form">
                 <input type="hidden" name="form_typ" value="adressbuch_add">
                 <div class="form-grid">
                     <div class="form-group">
@@ -284,24 +281,24 @@
                     </div>
                 </div>
 
-                <div class="form-actions" style="margin-top: 0.75rem;">
-                    <button type="submit" class="btn-submit">Zum Adressbuch hinzufügen</button>
+                <div class="form-actions">
+                    <button type="submit" class="btn-kompass btn-kompass--success">Zum Adressbuch hinzufügen</button>
                 </div>
             </form>
 
             {% if adressbuch %}
-                <div style="display: flex; flex-direction: column; gap: 0.45rem;">
+                <div class="adressbuch-list">
                     {% for eintrag in adressbuch %}
-                        <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; padding: 0.5rem 0.75rem; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px;">
+                        <div class="adressbuch-item">
                             <div>
                                 <strong>{{ eintrag.bezeichnung }}</strong>
-                                <span style="color: #4b5563; margin-left: 0.4rem;">({{ eintrag.email }})</span>
+                                <span class="adressbuch-mail">({{ eintrag.email }})</span>
                             </div>
 
-                            <form method="POST" style="margin: 0;">
+                            <form method="POST" class="no-margin">
                                 <input type="hidden" name="form_typ" value="adressbuch_delete">
                                 <input type="hidden" name="eintrag_id" value="{{ eintrag.id }}">
-                                <button type="submit" style="padding: 0.28rem 0.6rem; border-radius: 6px; border: 1px solid #fca5a5; background: #fef2f2; color: #991b1b; font-size: 0.84rem; cursor: pointer;">
+                                <button type="submit" class="btn-kompass btn-kompass--danger-light">
                                     Löschen
                                 </button>
                             </form>
@@ -309,7 +306,7 @@
                     {% endfor %}
                 </div>
             {% else %}
-                <p style="margin: 0; font-size: 0.88rem; color: #6b7280;">Noch keine Einträge im Adressbuch vorhanden.</p>
+                <p class="text-muted no-margin">Noch keine Einträge im Adressbuch vorhanden.</p>
             {% endif %}
         </div>
     </div>

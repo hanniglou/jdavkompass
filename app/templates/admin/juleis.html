@@ -7,6 +7,90 @@
     <h1>Admin Panel – JuLei Verwaltung</h1>
     {% include "admin/_nav.html" %}
 
+    <div class="form-card julei-form-card">
+        <h3>Neue:n Jugendleiter:in hinzufügen</h3>
+        <form method="POST" action="{{ url_for('admin.add_gruppenleiter') }}">
+
+            <div class="form-section">
+                <div class="form-grid">
+
+                    <div class="form-group">
+                        <label for="julei-vorname">Vorname</label>
+                        <input id="julei-vorname" type="text" name="vorname" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="julei-nachname">Nachname</label>
+                        <input id="julei-nachname" type="text" name="nachname" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="julei-geburtsdatum">Geburtsdatum</label>
+                        <input id="julei-geburtsdatum" type="date" name="geburtsdatum" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="julei-iban">IBAN</label>
+                        <input id="julei-iban" type="text" name="iban" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="julei-bic">BIC</label>
+                        <input id="julei-bic" type="text" name="bic" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="julei-bank">Bank</label>
+                        <input id="julei-bank" type="text" name="bank" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="julei-telefon">Telefon</label>
+                        <input id="julei-telefon" type="text" name="telefon" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="julei-gruppenrolle">Gruppenrolle</label>
+                        <select id="julei-gruppenrolle" name="gruppenrolle" required>
+                            <option value="">Gruppenrolle wählen</option>
+                            <option value="Jugendleiter:in">Jugendleiter:in</option>
+                            <option value="Helfer:in">Helfer:in</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="julei-vereinsrolle">Vereinsrolle</label>
+                        <select id="julei-vereinsrolle" name="vereinsrolle" required>
+                            <option value="">Vereinsrolle wählen</option>
+                            <option value="keine">keine</option>
+                            <option value="Jugendausschuss">Jugendausschuss</option>
+                            <option value="Jugendreferent:in">Jugendreferent:in</option>
+                        </select>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="julei-account">Verknüpfter Account (optional)</label>
+                <select id="julei-account" name="account_id">
+                    <option value="">Kein Account verknüpft</option>
+                    {% for acc in accounts %}
+                        {% set label = acc.anzeigename or acc.uname %}
+                        <option value="{{ acc.id }}">{{ label }} ({{ acc.uname }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn-kompass btn-kompass--success">
+                    Jugendleiter:in hinzufügen
+                </button>
+            </div>
+
+        </form>
+    </div>
+
     <div class="table-container">
         <h3>Jugendleitende</h3>
         <table class="table">
@@ -47,7 +131,7 @@
                     <td>
                         <a
                             href="{{ url_for('admin.gruppenleiter_bearbeiten', gruppenleiter_id=leiter.id) }}"
-                            class="btn btn-success"
+                            class="btn-kompass btn-kompass--success"
                         >
                             Bearbeiten
                         </a>
@@ -57,92 +141,7 @@
             </tbody>
         </table>
     </div>
-
-    <div class="form-card">
-        <h3>Neue:n Jugendleiter:in hinzufügen</h3>
-        <form method="POST" action="{{ url_for('admin.add_gruppenleiter') }}">
-
-            <div class="form-section">
-                <div class="form-grid">
-
-                    <div class="form-group">
-                        <label>Vorname</label>
-                        <input type="text" name="vorname" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Nachname</label>
-                        <input type="text" name="nachname" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Geburtsdatum</label>
-                        <input type="date" name="geburtsdatum" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label>IBAN</label>
-                        <input type="text" name="iban" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label>BIC</label>
-                        <input type="text" name="bic" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Bank</label>
-                        <input type="text" name="bank" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Telefon</label>
-                        <input type="text" name="telefon" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Gruppenrolle</label>
-                        <select name="gruppenrolle" required>
-                            <option value="">Gruppenrolle wählen</option>
-                            <option value="Jugendleiter:in">Jugendleiter:in</option>
-                            <option value="Helfer:in">Helfer:in</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Vereinsrolle</label>
-                        <select name="vereinsrolle" required>
-                            <option value="">Vereinsrolle wählen</option>
-                            <option value="keine">keine</option>
-                            <option value="Jugendausschuss">Jugendausschuss</option>
-                            <option value="Jugendreferent:in">Jugendreferent:in</option>
-                        </select>
-                    </div>
-
-                </div>
-            </div>
-
-            <div class="form-group">
-                <label>Verknüpfter Account (optional)</label>
-                <select name="account_id">
-                    <option value="">Kein Account verknüpft</option>
-                    {% for acc in accounts %}
-                        {% set label = acc.anzeigename or acc.uname %}
-                        <option value="{{ acc.id }}">{{ label }} ({{ acc.uname }})</option>
-                    {% endfor %}
-                </select>
-            </div>
-
-            <div class="form-actions">
-                <button type="submit" class="btn-submit">
-                    Jugendleiter:in hinzufügen
-                </button>
-            </div>
-
-        </form>
-    </div>
 </section>
-{% endblock %}
 
 <script>
 document.addEventListener("DOMContentLoaded", function () {
@@ -229,3 +228,4 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 });
 </script>
+{% endblock %}

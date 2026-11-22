@@ -4,8 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}JDAV Hildesheim{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/cssextern.css') }}">
-    <meta name="Jugend des Deutschen Alpenvereins der Sektion Hildesheim - Digitales Management von Kinder - und Jugendgruppen">
+    <meta name="description" content="Jugend des Deutschen Alpenvereins der Sektion Hildesheim - Digitales Management von Kinder- und Jugendgruppen">
     <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
     {% block head %}{% endblock %}
 </head>
@@ -14,7 +17,7 @@
         {% block content %}{% endblock %}
     </main>
     <footer>
-    &copy; 2026 JDAV Hildesheim. Alle Rechte vorbehalten.
-</footer>
+        &copy; 2026 JDAV Hildesheim. Alle Rechte vorbehalten.
+    </footer>
 </body>
 </html>

@@ -3,7 +3,13 @@ from flask_login import current_user, login_required
 from werkzeug.security import check_password_hash
 
 from app.routes.auth import require_role
-from app.services.profile_service import *
+from app.services.profile_service import (
+    existing_username,
+    get_account,
+    update_display_name,
+    update_password,
+    update_username,
+)
 
 profile_bp = Blueprint("profile", __name__)
 

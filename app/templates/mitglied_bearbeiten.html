@@ -1,77 +1,31 @@
 {% extends "base_intern.html" %}
+{% from "_date_picker.html" import kompass_date_picker, kompass_date_picker_scripts %}
 {% block title %}{{ mitglied.vorname }} {{ mitglied.nachname }} - Mitglieder bearbeiten - JDAV Hildesheim{% endblock %}
 {% block content %}
-<style>
-    .section-details > summary {
-        list-style: none;
-        cursor: pointer;
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        user-select: none;
-    }
-    .section-details > summary::-webkit-details-marker {
-        display: none;
-    }
-    .section-title {
-        margin: 0;
-        font-size: 1.15rem;
-        font-weight: 700;
-        color: #111827;
-    }
-    .section-chevron {
-        display: inline-block;
-        font-size: 0.85rem;
-        color: #6b7280;
-        transition: transform 0.2s ease;
-        transform: rotate(0deg);
-    }
-    .section-details:not([open]) > summary .section-chevron {
-        transform: rotate(-90deg);
-    }
-    .historie-liste {
-        list-style: none;
-        margin: 0;
-        padding: 0;
-        display: flex;
-        flex-direction: column;
-        gap: 0.2rem;
-        font-size: 0.93rem;
-        line-height: 1.4;
-        color: #374151;
-    }
-    .historie-item {
-        padding: 0.1rem 0;
-    }
-    .btn-submit.btn-unchanged,
-    .btn-submit:disabled {
-        background-color: #9ca3af !important;
-        border-color: #9ca3af !important;
-        color: #f3f4f6 !important;
-        cursor: not-allowed;
-        opacity: 0.85;
-    }
-</style>
-
 <section class="page-section">
 
-    <h1 style="margin-top: 0;">Detailansicht Mitglied</h1>
+    <h1>Detailansicht Mitglied</h1>
+    <div class="back-link-row">
+        <a href="{{ url_for('mitglieder.mitglieder') }}" class="back-link" onclick="event.preventDefault(); window.KompassNav.goBack(this.href);">
+            &larr; Zurück zur Mitgliederübersicht
+        </a>
+    </div>
 
-    <div style="margin-bottom: 1.25rem;">
-        <h2 style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.65rem; margin-bottom: 0;">
+    <div class="mitglied-kopf">
+        <h2 class="mitglied-kopf-titel">
             <span>{{ mitglied.vorname }} {{ mitglied.nachname }}</span>
             {% if mitglied.geburtsdatum %}
-                <span style="font-size: 0.62em; font-weight: 500; color: #6b7280;">
+                <span class="mitglied-geburtsdatum">
                     ({{ mitglied.geburtsdatum[8:10] }}.{{ mitglied.geburtsdatum[5:7] }}.{{ mitglied.geburtsdatum[0:4] }})
                 </span>
             {% endif %}
             {% if mitglied.archiviert %}
-                <span style="font-size: 0.75em; font-weight: 500; color: #9ca3af;">(Archiviert)</span>
+                <span class="mitglied-archiv-badge">(Archiviert)</span>
             {% endif %}
         </h2>
 
         {% if mitglied.kuendigung_datum %}
-            <p style="margin: 0.35rem 0 0 0; color: #92400e; font-size: 0.94rem; font-weight: 500;">
+            <p class="kuendigung-status-text">
                 Gekündigt zum
                 <strong>
                     {% if kuendigung_info and kuendigung_info.datum_kurz %}
@@ -93,10 +47,10 @@
         {% endif %}
     </div>
 
-    <div class="form-card flex" style="flex-direction: column; gap: 0;">
+    <div class="form-card flex detail-stack">
 
-        <div class="form-section" style="padding-bottom: 1.25rem;">
-            <h3 class="section-title" style="margin-top: 0;">Mitgliedshistorie</h3>
+        <div class="form-section detail-block">
+            <h3 class="section-title">Mitgliedshistorie</h3>
 
             {% macro render_historie_eintrag(eintrag) -%}
                 <li class="historie-item">
@@ -106,19 +60,19 @@
 
             {% if historie_eintraege %}
                 {% set historie_neueste = historie_eintraege|reverse|list %}
-                <ul class="historie-liste" style="margin-top: 0.6rem;">
+                <ul class="historie-liste historie-liste--spaced">
                     {% for eintrag in historie_neueste[:2] %}
                         {{ render_historie_eintrag(eintrag) }}
                     {% endfor %}
                 </ul>
 
                 {% if historie_neueste|length > 2 %}
-                <details class="section-details" style="margin-top: 0.75rem;">
-                    <summary style="font-weight: 600; font-size: 0.92rem; color: #374151;">
+                <details class="section-details historie-mehr">
+                    <summary class="historie-mehr-summary">
                         <span>Gesamte Historie anzeigen ({{ historie_neueste|length }} Einträge)</span>
                         <span class="section-chevron" aria-hidden="true">▾</span>
                     </summary>
-                    <ul class="historie-liste" style="margin-top: 0.6rem;">
+                    <ul class="historie-liste historie-liste--spaced">
                         {% for eintrag in historie_neueste %}
                             {{ render_historie_eintrag(eintrag) }}
                         {% endfor %}
@@ -126,18 +80,18 @@
                 </details>
                 {% endif %}
             {% else %}
-                <p style="margin: 0.6rem 0 0 0; color: #6b7280; font-size: 0.92rem;">
+                <p class="historie-leer">
                     Noch keine Historien-Einträge für dieses Mitglied dokumentiert.
                 </p>
             {% endif %}
         </div>
 
-        <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 0;">
+        <hr class="detail-divider">
 
-        <details class="form-section section-details" style="padding-top: 1.25rem;" open>
-            <summary><h3 class="section-title">Stammdaten</h3><span class="section-chevron" aria-hidden="true">▾</span></summary>
+        <details class="form-section section-details detail-block--top" open>
+            <summary><h3 class="section-title"><span>Stammdaten</span><span class="section-chevron" aria-hidden="true">▾</span></h3></summary>
 
-            <form id="stammdaten-form" method="POST" style="row-gap: 0; margin-top: 1rem;">
+            <form id="stammdaten-form" method="POST" class="stammdaten-form">
                 <input type="hidden" name="action" value="speichern">
 
                 <div class="form-section">
@@ -146,23 +100,23 @@
                     <div class="form-grid">
 
                         <div class="form-group">
-                            <label>Vorname</label>
-                            <input type="text" name="vorname" value="{{ mitglied.vorname or '' }}">
+                            <label for="mitglied-vorname">Vorname</label>
+                            <input id="mitglied-vorname" type="text" name="vorname" value="{{ mitglied.vorname or '' }}">
                         </div>
 
                         <div class="form-group">
-                            <label>Nachname</label>
-                            <input type="text" name="nachname" value="{{ mitglied.nachname or '' }}">
+                            <label for="mitglied-nachname">Nachname</label>
+                            <input id="mitglied-nachname" type="text" name="nachname" value="{{ mitglied.nachname or '' }}">
                         </div>
 
                         <div class="form-group">
-                            <label>Geburtsdatum</label>
-                            <input type="date" name="geburtsdatum" value="{{ mitglied.geburtsdatum or '' }}">
+                            <label for="mitglied-geburtsdatum">Geburtsdatum</label>
+                            <input id="mitglied-geburtsdatum" type="date" name="geburtsdatum" value="{{ mitglied.geburtsdatum or '' }}">
                         </div>
 
                         <div class="form-group">
-                            <label>Mitgliedsnummer</label>
-                            <input type="text" name="mitgliedsnummer" value="{{ mitglied.mitgliedsnummer or '' }}">
+                            <label for="mitglied-nummer">Mitgliedsnummer</label>
+                            <input id="mitglied-nummer" type="text" name="mitgliedsnummer" value="{{ mitglied.mitgliedsnummer or '' }}">
                         </div>
 
                     </div>
@@ -174,23 +128,23 @@
                     <div class="form-grid">
 
                         <div class="form-group">
-                            <label>Straße</label>
-                            <input type="text" name="strasse" value="{{ mitglied.strasse or '' }}">
+                            <label for="mitglied-strasse">Straße</label>
+                            <input id="mitglied-strasse" type="text" name="strasse" value="{{ mitglied.strasse or '' }}">
                         </div>
 
                         <div class="form-group">
-                            <label>Hausnummer</label>
-                            <input type="text" name="hausnummer" value="{{ mitglied.hausnummer or '' }}">
+                            <label for="mitglied-hausnummer">Hausnummer</label>
+                            <input id="mitglied-hausnummer" type="text" name="hausnummer" value="{{ mitglied.hausnummer or '' }}">
                         </div>
 
                         <div class="form-group">
-                            <label>PLZ</label>
-                            <input type="text" name="plz" value="{{ mitglied.plz or '' }}">
+                            <label for="mitglied-plz">PLZ</label>
+                            <input id="mitglied-plz" type="text" name="plz" value="{{ mitglied.plz or '' }}">
                         </div>
 
                         <div class="form-group">
-                            <label>Ort</label>
-                            <input type="text" name="ort" value="{{ mitglied.ort or '' }}">
+                            <label for="mitglied-ort">Ort</label>
+                            <input id="mitglied-ort" type="text" name="ort" value="{{ mitglied.ort or '' }}">
                         </div>
 
                     </div>
@@ -204,30 +158,30 @@
                         <input type="hidden" name="eb_id" value="{{ erziehungsberechtigte.id or '' }}">
 
                         <div class="form-group">
-                            <label>Vorname</label>
-                            <input type="text" name="eb_vorname" value="{{ erziehungsberechtigte.vorname or '' }}">
+                            <label for="eb-vorname">Vorname</label>
+                            <input id="eb-vorname" type="text" name="eb_vorname" value="{{ erziehungsberechtigte.vorname or '' }}">
                         </div>
 
                         <div class="form-group">
-                            <label>Nachname</label>
-                            <input type="text" name="eb_nachname" value="{{ erziehungsberechtigte.nachname or '' }}">
+                            <label for="eb-nachname">Nachname</label>
+                            <input id="eb-nachname" type="text" name="eb_nachname" value="{{ erziehungsberechtigte.nachname or '' }}">
                         </div>
 
                         <div class="form-group">
-                            <label>Email</label>
-                            <input type="email" name="eb_email" value="{{ erziehungsberechtigte.email or '' }}">
+                            <label for="eb-email">Email</label>
+                            <input id="eb-email" type="email" name="eb_email" value="{{ erziehungsberechtigte.email or '' }}">
                         </div>
 
                         <div class="form-group">
-                            <label>Telefon</label>
-                            <input type="text" name="eb_telefon" value="{{ erziehungsberechtigte.telefon or '' }}">
+                            <label for="eb-telefon">Telefon</label>
+                            <input id="eb-telefon" type="text" name="eb_telefon" value="{{ erziehungsberechtigte.telefon or '' }}">
                         </div>
 
                     </div>
                 </div>
 
-                <div class="form-actions" style="padding-bottom: 0.65rem; margin-top: 0;">
-                    <button type="submit" id="stammdaten-speichern-btn" class="btn-submit btn-unchanged" disabled>
+                <div class="form-actions form-actions--compact">
+                    <button type="submit" id="stammdaten-speichern-btn" class="btn-kompass btn-kompass--success is-disabled" disabled>
                         Mitgliedsdaten speichern
                     </button>
                 </div>
@@ -235,16 +189,16 @@
             </form>
         </details>
 
-        <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 0;">
+        <hr class="detail-divider">
 
-        <form method="POST"
-              style="padding-top: 1.25rem;"
-              onsubmit="return confirm('Manuelle Kündigung für {{ mitglied.vorname }} {{ mitglied.nachname }} wirklich erfassen?');">
+        <form id="manuelle-kuendigung-form"
+              method="POST"
+              class="detail-block--top">
             <input type="hidden" name="action" value="manuelle_kuendigung">
 
             <details class="form-section section-details" open>
-                <summary><h3 class="section-title">Kündigung manuell erfassen</h3><span class="section-chevron" aria-hidden="true">▾</span></summary>
-                <p style="margin: 0.85rem 0 1rem 0; color: #4b5563; font-size: 0.92rem;">
+                <summary><h3 class="section-title"><span>Kündigung manuell erfassen</span><span class="section-chevron" aria-hidden="true">▾</span></h3></summary>
+                <p class="section-hint">
                     Für formlose, außerordentliche oder rückwirkende Kündigungen.
                     {% if mitglied.kuendigung_datum %}
                         Aktuell vermerkt: <strong>{{ mitglied.kuendigung_datum[8:10] }}.{{ mitglied.kuendigung_datum[5:7] }}.{{ mitglied.kuendigung_datum[2:4] }}</strong>
@@ -255,44 +209,21 @@
                 <div class="form-grid">
                     <div class="form-group">
                         <label for="manuelles-kuendigungsdatum-de">Kündigungsdatum</label>
-                        {% set k_iso = mitglied.kuendigung_datum or '' %}
-                        {% if k_iso|length == 10 and k_iso[2] == '.' and k_iso[5] == '.' %}
-                            {% set k_iso = k_iso[6:10] ~ '-' ~ k_iso[3:5] ~ '-' ~ k_iso[0:2] %}
-                        {% endif %}
-                        {% set k_de = (k_iso[8:10] ~ '.' ~ k_iso[5:7] ~ '.' ~ k_iso[0:4]) if k_iso|length >= 10 else '' %}
-                        <div style="position: relative; display: flex; align-items: center;">
-                            <input
-                                type="text"
-                                id="manuelles-kuendigungsdatum-de"
-                                value="{{ k_de }}"
-                                placeholder="dd.mm.yyyy"
-                                inputmode="numeric"
-                                pattern="\d{2}\.\d{2}\.\d{4}"
-                                maxlength="10"
-                                required
-                                style="width: 100%; padding-right: 2.25rem;"
-                            >
-                            <input
-                                type="hidden"
-                                id="manuelles-kuendigungsdatum"
-                                name="kuendigungsdatum"
-                                value="{{ k_iso }}"
-                            >
-                            <input
-                                type="date"
-                                id="manuelles-kuendigungsdatum-picker"
-                                value="{{ k_iso }}"
-                                aria-label="Kalender öffnen"
-                                tabindex="-1"
-                                style="position: absolute; right: 0.45rem; width: 1.6rem; height: 1.6rem; opacity: 0; cursor: pointer; z-index: 2;"
-                            >
-                            <span aria-hidden="true" style="position: absolute; right: 0.6rem; pointer-events: none; font-size: 1rem; color: #4b5563;">📅</span>
-                        </div>
+                        {{ kompass_date_picker(
+                            input_id="manuelles-kuendigungsdatum-de",
+                            hidden_name="kuendigungsdatum",
+                            initial_iso=mitglied.kuendigung_datum or "",
+                            required=true,
+                            full_width=true,
+                            placeholder="dd.mm.yyyy",
+                            mark_month_end=true,
+                            warn_non_month_end=true
+                        ) }}
                     </div>
                 </div>
 
-                <div style="margin-top: 1rem; display: flex; flex-direction: column; gap: 0.5rem;">
-                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                <div class="checkbox-stack">
+                    <label class="checkbox-label">
                         <input type="checkbox" name="sende_bestaetigung" value="1">
                         <span>
                             Kündigungsbestätigung an hinterlegte E-Mail senden
@@ -305,26 +236,26 @@
                     </label>
                 </div>
 
-                <div class="form-group" style="margin-top: 0.85rem;">
+                <div class="form-group form-group--top-spaced">
                     <label for="manuelle-kuendigung-freitext">Bemerkung / Freitext (optional)</label>
                     <textarea
                         id="manuelle-kuendigung-freitext"
                         name="kuendigung_freitext"
                         rows="2"
+                        class="textarea-resizable"
                         placeholder="z. B. Kündigung per E-Mail vom 15.11., Sonderkündigung wegen Umzug …"
-                        style="width: 100%; resize: vertical;"
                     ></textarea>
                 </div>
 
                 {% if adressbuch_eintraege %}
-                <div style="margin-top: 1rem;">
-                    <label style="display: block; font-weight: 600; margin-bottom: 0.45rem;">
+                <div class="adressbuch-block">
+                    <span class="adressbuch-heading">
                         Benachrichtigungs-Mail an Adressbuch-Einträge senden:
-                    </label>
-                    <div style="display: flex; flex-direction: column; gap: 0.35rem;">
+                    </span>
+                    <div class="checkbox-stack--tight">
                         {% for eintrag in adressbuch_eintraege %}
                         {% set anzeige_name = eintrag.name or eintrag.bezeichnung or eintrag.titel or eintrag.label or 'Ohne Namen' %}
-                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                        <label class="checkbox-label">
                             <input type="checkbox" name="adressbuch_ids" value="{{ eintrag.id }}">
                             <span>
                                 <strong>{{ anzeige_name }}</strong>
@@ -336,39 +267,43 @@
                 </div>
                 {% endif %}
 
-                <div class="form-actions" style="margin-top: 1rem; padding-bottom: 1.5rem;">
-                    <button type="submit"
-                            class="btn-submit"
-                            style="background-color: #d97706; border-color: #d97706; color: #ffffff;">
+                <div class="form-actions form-actions--padded">
+                    <button type="button"
+                            class="btn-kompass btn-kompass--warning"
+                            onclick="submitManualCancellation()">
                         Kündigung manuell erfassen
                     </button>
                 </div>
             </details>
         </form>
 
-        <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 0;">
+        <hr class="detail-divider">
 
-        <details class="form-section section-details" style="padding-top: 1.5rem;" open>
-            <summary><h3 class="section-title">Mitglied archivieren</h3><span class="section-chevron" aria-hidden="true">▾</span></summary>
-            <p style="margin: 0.85rem 0 1rem 0; color: #4b5563; font-size: 0.92rem;">
+        <details class="form-section section-details detail-block--archiv" open>
+            <summary><h3 class="section-title"><span>Mitglied archivieren</span><span class="section-chevron" aria-hidden="true">▾</span></h3></summary>
+            <p class="section-hint">
                 Verschiebt das Mitglied direkt ins Archiv (z. B. bei doppelten oder bereits länger beendeten Einträgen), ohne eine Kündigung zu vermerken.
             </p>
 
             {% if mitglied.archiviert %}
-            <form method="POST" style="display: inline-block;">
+            <form method="POST" class="inline-block-form">
                 <input type="hidden" name="action" value="entarchivieren">
-                <button type="submit" class="btn-submit">
+                <button type="submit" class="btn-kompass btn-kompass--success">
                     Aus Archiv wiederherstellen
                 </button>
             </form>
             {% else %}
-            <form method="POST"
-                  onsubmit="return confirm('{{ mitglied.vorname }} {{ mitglied.nachname }} ohne Kündigung direkt ins Archiv verschieben?');"
-                  style="display: inline-block;">
+            <form id="archivieren-form" method="POST" class="inline-block-form">
                 <input type="hidden" name="action" value="archivieren">
-                <button type="submit"
-                        class="btn-submit"
-                        style="background-color: #4b5563; border-color: #4b5563; color: #ffffff;">
+                <button type="button"
+                        class="btn-kompass btn-kompass--danger"
+                        onclick="window.KompassModal.open({
+                            title: 'Mitglied archivieren?',
+                            message: 'Soll {{ mitglied.vorname }} {{ mitglied.nachname }} ohne Kündigung direkt ins Archiv verschoben werden?',
+                            submitText: 'Ins Archiv verschieben',
+                            cancelText: 'Abbrechen',
+                            onConfirm: () => document.getElementById('archivieren-form').submit()
+                        });">
                     Mitglied archivieren
                 </button>
             </form>
@@ -378,7 +313,30 @@
     </div>
 </section>
 
+{{ kompass_date_picker_scripts() }}
+
 <script>
+function submitManualCancellation() {
+    const form = document.getElementById("manuelle-kuendigung-form");
+    const dateInput = document.getElementById("manuelles-kuendigungsdatum-de");
+    const isoVal = window.KompassDatePicker ? window.KompassDatePicker.getIso("manuelles-kuendigungsdatum-de") : "";
+    if (!form) return;
+    if (!isoVal) {
+        if (dateInput) {
+            dateInput.setCustomValidity("Bitte ein gültiges Datum im Format TT.MM.JJJJ eingeben.");
+            dateInput.reportValidity();
+        }
+        return;
+    }
+    window.KompassModal.open({
+        title: "Manuelle Kündigung erfassen?",
+        message: `Manuelle Kündigung für {{ mitglied.vorname }} {{ mitglied.nachname }} zum ${dateInput.value} erfassen?`,
+        submitText: "Kündigung erfassen",
+        cancelText: "Abbrechen",
+        onConfirm: () => form.submit()
+    });
+}
+
 document.addEventListener("DOMContentLoaded", function () {
     const form = document.getElementById("stammdaten-form");
     const saveBtn = document.getElementById("stammdaten-speichern-btn");
@@ -390,52 +348,7 @@ document.addEventListener("DOMContentLoaded", function () {
     function updateButtonState() {
         const hasChanges = fields.some(el => el.value !== initialValues.get(el));
         saveBtn.disabled = !hasChanges;
-        saveBtn.classList.toggle("btn-unchanged", !hasChanges);
-    }
-
-    const kText = document.getElementById("manuelles-kuendigungsdatum-de");
-    const kHidden = document.getElementById("manuelles-kuendigungsdatum");
-    const kPicker = document.getElementById("manuelles-kuendigungsdatum-picker");
-
-    if (kText && kHidden && kPicker) {
-        // Kalender-Auswahl -> dd.mm.yyyy ins Textfeld + YYYY-MM-DD ins Backend-Feld
-        kPicker.addEventListener("change", function () {
-            if (!this.value) return;
-            kHidden.value = this.value;
-            const [y, m, d] = this.value.split("-");
-            kText.value = `${d}.${m}.${y}`;
-            kText.setCustomValidity("");
-        });
-
-        // Klick auf das Kalender-Icon/Feld öffnet in modernen Browsern direkt den Picker
-        kPicker.addEventListener("click", function () {
-            if (typeof this.showPicker === "function") {
-                try { this.showPicker(); } catch (e) {}
-            }
-        });
-
-        // Manuelles Tippen im Format dd.mm.yyyy -> automatische Punkte & Sync
-        kText.addEventListener("input", function () {
-            const digits = this.value.replace(/\D/g, "").slice(0, 8);
-            let formatted = digits;
-            if (digits.length > 4) {
-                formatted = `${digits.slice(0, 2)}.${digits.slice(2, 4)}.${digits.slice(4)}`;
-            } else if (digits.length > 2) {
-                formatted = `${digits.slice(0, 2)}.${digits.slice(2)}`;
-            }
-            if (this.value !== formatted) {
-                this.value = formatted;
-            }
-
-            if (digits.length === 8) {
-                const iso = `${digits.slice(4)}-${digits.slice(2, 4)}-${digits.slice(0, 2)}`;
-                kHidden.value = iso;
-                kPicker.value = iso;
-                this.setCustomValidity("");
-            } else {
-                kHidden.value = "";
-            }
-        });
+        saveBtn.classList.toggle("is-disabled", !hasChanges);
     }
 
     fields.forEach(el => {

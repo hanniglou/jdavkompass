@@ -1,8 +1,11 @@
 {% extends "base_extern.html" %}
 
-{% block title %}Serverfehler{% endblock %}
+{% block title %}500 – Interner Serverfehler | JDAV Hildesheim{% endblock %}
 
 {% block content %}
-<h1>500 - Interner Serverfehler</h1>
-<p>Ein unerwarteter Fehler ist aufgetreten. Bitte versuchen Sie es später erneut.</p>
+<div class="error-card">
+    <h1>500 – Kurz mal aus der Spur</h1>
+    <p>Auf dem Server ist gerade etwas ins Stolpern geraten. Hol kurz Luft und versuch es gleich noch einmal.</p>
+    <a href="/" class="btn-kompass btn-kompass--secondary-light">Nochmal versuchen</a>
+</div>
 {% endblock %}

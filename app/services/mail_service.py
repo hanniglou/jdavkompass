@@ -54,7 +54,6 @@ def speichere_mail_konfiguration(
         existing = conn.execute("SELECT smtp_password FROM mail_einstellungen WHERE id = 1").fetchone()
         neues_passwort = existing["smtp_password"] if existing else None
 
-        # Nur überschreiben, wenn im Formular ein neues Passwort eingegeben wurde
         if smtp_password is not None and smtp_password.strip() != "":
             neues_passwort = smtp_password.strip()
 
@@ -247,23 +246,23 @@ def sende_test_mail(schluessel: str, empfaenger_email: str) -> str:
         "grund": "Umzug / Testlauf aus dem Admin-Panel",
         "erstellt_am": datetime.now().strftime("%d.%m.%Y %H:%M"),
         "dav_hinweis": (
-            "\nWICHTIGER HINWEIS ZUR DAV-SEKTIONSMITGLIEDSCHAFT:\n"
-            "Dies ist der automatische Hinweisblock für die DAV-Sektionsmitgliedschaft.\n"
+            "\nHinweis zur DAV-Sektionsmitgliedschaft:\n"
+            "Diese Kündigung gilt ausschließlich für die Jugendgruppe und nicht für die Mitgliedschaft in der DAV-Sektion Hildesheim.\n"
         ),
-        "freitext": "Dies ist ein individueller Zusatztext aus dem Freitext-Feld.\n\n",
+        "freitext": "Ergänzender Hinweis aus der Kündigungsbearbeitung.\n\n",
     }
 
     beispieldaten_html = {
         **{k: html.escape(v) for k, v in beispieldaten_plain.items()},
         "dav_hinweis": (
             "<div style='margin: 16px 0; padding: 12px 14px; border-left: 4px solid #d97706; background: #fffbeb; color: #78350f;'>"
-            "<strong>Wichtiger Hinweis zur DAV-Sektionsmitgliedschaft:</strong><br>"
-            "Dies ist der automatische Hinweisblock für die DAV-Sektionsmitgliedschaft."
+            "<strong>Hinweis zur DAV-Sektionsmitgliedschaft:</strong><br>"
+            "Diese Kündigung gilt ausschließlich für die Jugendgruppe und nicht für die Mitgliedschaft in der DAV-Sektion Hildesheim."
             "</div>"
         ),
         "freitext": (
             "<div style='margin: 0 0 16px 0;'>"
-            "<p>Dies ist ein individueller Zusatztext aus dem Freitext-Feld.</p>"
+            "<p>Ergänzender Hinweis aus der Kündigungsbearbeitung.</p>"
             "</div>"
         ),
     }
@@ -298,12 +297,11 @@ def sende_kuendigungs_eingangsbestaetigung(daten: dict) -> bool:
     dav_hinweis_text = ""
     if daten["dav_sektion_kuendigen"]:
         dav_hinweis_text = (
-            "\nWICHTIGER HINWEIS ZUR DAV-SEKTIONSMITGLIEDSCHAFT:\n"
-            "Du hast angegeben, ebenfalls die Mitgliedschaft in der DAV-Sektion kündigen zu wollen. "
-            "Diese Kündigung über den JDAV-Kompass gilt EXPLIZIT NUR für die Jugendgruppe und NICHT als "
-            "Kündigung der Mitgliedschaft in der DAV-Sektion Hildesheim. Bitte richte eine Kündigung der "
-            "Sektionsmitgliedschaft separat schriftlich (postalisch oder per E-Mail an info@dav-hildesheim.de) "
-            "an die Sektion. Dort können abweichende Fristen und Bedingungen gelten.\n"
+            "\nHinweis zur DAV-Sektionsmitgliedschaft:\n"
+            "Diese Kündigung gilt ausschließlich für die Jugendgruppe der JDAV Hildesheim und nicht "
+            "für die Mitgliedschaft in der DAV-Sektion Hildesheim. Bitte richte eine Kündigung der "
+            "Sektionsmitgliedschaft bei Bedarf separat schriftlich (z. B. per E-Mail an "
+            "info@dav-hildesheim.de) an die Sektion.\n"
         )
 
     platzhalter = {
@@ -323,7 +321,7 @@ def sende_kuendigungs_eingangsbestaetigung(daten: dict) -> bool:
         subject = _ersetze_platzhalter(tpl["betreff"], platzhalter)
         plain_body = _ersetze_platzhalter(tpl["text_vorlage"], platzhalter)
     else:
-        subject = f"Eingangsbestätigung [#{vorgangsnummer}]: Kündigung Jugendgruppe für {kind_name} ({kuend_datum_de})"
+        subject = f"Eingang der Kündigung [#{vorgangsnummer}] für {kind_name} zum {kuend_datum_de}"
         plain_body = (
             f"Hallo {eb_name},\n\n"
             f"wir haben Deine Kündigung (#{vorgangsnummer}) für {kind_name} zum {kuend_datum_de} erhalten.\n"
@@ -383,15 +381,15 @@ def sende_kuendigungsbestaetigung(daten: dict, freitext: str = "") -> bool:
     dav_hinweis_html = ""
     if daten.get("dav_sektion_kuendigen"):
         dav_hinweis_plain = (
-            "\nWICHTIGER HINWEIS ZUR DAV-SEKTIONSMITGLIEDSCHAFT:\n"
-            "Diese Kündigung über den JDAV-Kompass gilt EXPLIZIT NUR für die Jugendgruppe und NICHT als "
-            "Kündigung der Mitgliedschaft in der DAV-Sektion Hildesheim.\n"
+            "\nHinweis zur DAV-Sektionsmitgliedschaft:\n"
+            "Diese Kündigung gilt ausschließlich für die Jugendgruppe der JDAV Hildesheim und nicht "
+            "für die Mitgliedschaft in der DAV-Sektion Hildesheim.\n"
         )
         dav_hinweis_html = (
             "<div style='margin: 16px 0; padding: 12px 14px; border-left: 4px solid #d97706; background: #fffbeb; color: #78350f;'>"
-            "<strong>Wichtiger Hinweis zur DAV-Sektionsmitgliedschaft:</strong><br>"
-            "Diese Kündigung über den JDAV-Kompass gilt <strong>explizit nur für die Jugendgruppe</strong> "
-            "und nicht als Kündigung der Mitgliedschaft in der DAV-Sektion Hildesheim."
+            "<strong>Hinweis zur DAV-Sektionsmitgliedschaft:</strong><br>"
+            "Diese Kündigung gilt <strong>ausschließlich für die Jugendgruppe</strong> der JDAV Hildesheim "
+            "und nicht für die Mitgliedschaft in der DAV-Sektion Hildesheim."
             "</div>"
         )
 
@@ -430,8 +428,8 @@ def sende_kuendigungsbestaetigung(daten: dict, freitext: str = "") -> bool:
         subject = f"Bestätigung der Kündigung [#{vorgangsnummer}] für {kind_name}"
         plain_body = (
             f"Hallo {eb_name},\n\n"
-            f"wir bestätigen hiermit die Kündigung (#{vorgangsnummer}) für {kind_name} zum {kuend_datum_de}.\n"
-            f"{freitext_plain}{dav_hinweis_plain}\nViele Grüße"
+            f"wir bestätigen die Kündigung (#{vorgangsnummer}) für {kind_name} zum {kuend_datum_de}.\n"
+            f"{freitext_plain}{dav_hinweis_plain}\nViele Grüße\nDein Team der JDAV Hildesheim"
         )
         custom_html = None
 
@@ -469,9 +467,9 @@ def sende_interne_kuendigungs_info(empfaenger_liste: list[dict], daten: dict, fr
         f"- Mitglied: {kind_name}\n"
         f"- Erziehungsberechtigte:r: {eb_name} ({daten['eb_email']})\n"
         f"- Kündigungsdatum: {kuend_datum_de} ({daten.get('kuendigungsart_label') or daten.get('kuendigungsart', '')})\n"
-        f"- DAV-Sektion ebenfalls kündigen angegeben: {'Ja' if daten.get('dav_sektion_kuendigen') else 'Nein'}\n"
+        f"- Gesonderte Kündigung DAV-Sektion angegeben: {'Ja' if daten.get('dav_sektion_kuendigen') else 'Nein'}\n"
         f"- Grund: {daten.get('grund') or 'Keine Angabe'}\n"
-        f"{f'- Freitext an Eltern: {freitext_clean}\n' if freitext_clean else ''}\n"
+        f"{f'- Ergänzender Hinweis an Eltern: {freitext_clean}\n' if freitext_clean else ''}\n"
         f"Viele Grüße\nJDAV Kompass"
     )
     html_body = f"""<!DOCTYPE html>
