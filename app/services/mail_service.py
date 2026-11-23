@@ -207,7 +207,13 @@ def _text_zu_html_absaetzen(text: str) -> str:
     return "\n".join(html_teile)
 
 
-def _sende_mail(to_addr: str, subject: str, plain_body: str, html_body: str) -> None:
+def _sende_mail(
+    to_addr: str,
+    subject: str,
+    plain_body: str,
+    html_body: str,
+    attachments: list[tuple[str, bytes, str]] | None = None,
+) -> None:
     cfg = hole_mail_konfiguration()
     smtp_server = cfg["smtp_server"]
     smtp_port = cfg["smtp_port"]
@@ -225,6 +231,10 @@ def _sende_mail(to_addr: str, subject: str, plain_body: str, html_body: str) -> 
     msg["Reply-To"] = username
     msg.set_content(plain_body)
     msg.add_alternative(html_body, subtype="html")
+
+    for filename, content_bytes, mime_type in attachments or []:
+        maintype, subtype = mime_type.split("/", 1)
+        msg.add_attachment(content_bytes, maintype=maintype, subtype=subtype, filename=filename)
 
     with smtplib.SMTP_SSL(smtp_server, smtp_port, timeout=20) as server:
         server.login(username, password)
@@ -285,6 +295,132 @@ def sende_test_mail(schluessel: str, empfaenger_email: str) -> str:
 
     _sende_mail(empfaenger_email.strip(), subject, plain_body, html_body)
     return subject
+
+
+def _finde_anmelde_template() -> dict | None:
+    kandidaten_schluessel = ("anmeldung_eingang", "anmeldung_bestaetigung", "anmeldung")
+    for key in kandidaten_schluessel:
+        tpl = hole_mail_template(key)
+        if tpl:
+            return tpl
+
+    for tpl in hole_alle_mail_templates():
+        schluessel = (tpl.get("schluessel") or "").lower()
+        bezeichnung = (tpl.get("bezeichnung") or "").lower()
+        if "anmeldung" in schluessel or "anmeldung" in bezeichnung or "eingangsbestätigung" in bezeichnung:
+            return tpl
+
+    return None
+
+
+def sende_anmelde_bestaetigung(
+    daten: dict,
+    pdf_bytes: bytes | None = None,
+    pdf_filename: str | None = None,
+) -> bool:
+    eb_email = (daten.get("eb_email") or "").strip()
+    if not eb_email:
+        return False
+
+    kind_name = (daten.get("kind_name") or "").strip()
+    eb_name = (daten.get("eb_name") or "").strip()
+    geburtsdatum = (daten.get("geburtsdatum") or "").strip()
+    adresse = (daten.get("adresse") or "").strip()
+    eb_telefon = (daten.get("eb_telefon") or "").strip()
+    bilder_erlaubnis = (daten.get("bilder_erlaubnis") or "Nicht erteilt").strip()
+    erstellt_am = (daten.get("erstellt_am") or datetime.now().strftime("%d.%m.%Y %H:%M")).strip()
+
+    platzhalter_plain = {
+        "kind_name": kind_name,
+        "geburtsdatum": geburtsdatum,
+        "adresse": adresse,
+        "eb_name": eb_name,
+        "eb_email": eb_email,
+        "eb_telefon": eb_telefon,
+        "bilder_erlaubnis": bilder_erlaubnis,
+        "erstellt_am": erstellt_am,
+    }
+
+    platzhalter_html = {k: html.escape(v) for k, v in platzhalter_plain.items()}
+
+    tpl = _finde_anmelde_template()
+    if tpl:
+        subject = _ersetze_platzhalter(tpl["betreff"], platzhalter_plain)
+        plain_body = _ersetze_platzhalter(tpl["text_vorlage"], platzhalter_plain)
+        custom_html = (tpl.get("html_vorlage") or "").strip()
+        if custom_html:
+            html_body = _ersetze_platzhalter(custom_html, platzhalter_html)
+        else:
+            html_body = f"""<!DOCTYPE html>
+<html lang="de">
+<head><meta charset="UTF-8"></head>
+<body style="font-family: Arial, Helvetica, sans-serif; color: #1f2937; line-height: 1.5; max-width: 620px; margin: 0 auto; padding: 20px;">
+    {_text_zu_html_absaetzen(plain_body)}
+</body>
+</html>
+"""
+    else:
+        subject = f"JDAV Hildesheim – Eingangsbestätigung Deiner Anmeldung für {kind_name}".strip()
+        plain_body = (
+            f"Hallo {eb_name},\n\n"
+            f"vielen Dank für die Anmeldung bei der Jugend des Deutschen Alpenvereins (JDAV) Sektion Hildesheim! "
+            f"Wir haben Eure Daten erfolgreich erhalten.\n\n"
+            f"Teilnehmende Person: {kind_name}\n"
+            f"Geburtsdatum: {geburtsdatum}\n"
+            f"Adresse: {adresse}\n"
+            f"Erziehungsberechtigte:r: {eb_name}\n"
+            f"E-Mail & Notfallkontakt: {eb_email} · {eb_telefon}\n"
+            f"Foto-/Video-Einwilligung: {bilder_erlaubnis}\n"
+            f"Eingegangen am: {erstellt_am}\n\n"
+            f"Viele Grüße\nDein Team der JDAV Hildesheim"
+        )
+        html_vorlage = """<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body style="margin: 0; padding: 24px; background-color: #f3f4f6; font-family: 'Source Sans 3', 'Source Sans Pro', Arial, Helvetica, sans-serif; color: #1f2937;">
+  <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 10px; overflow: hidden;">
+    <div style="background: #14532d; color: #ffffff; padding: 16px 22px;">
+      <h2 style="margin: 0; font-size: 18px; font-weight: 600; font-family: 'Source Sans 3', 'Source Sans Pro', Arial, Helvetica, sans-serif;">
+        JDAV Hildesheim – Eingangsbestätigung Deiner Anmeldung
+      </h2>
+    </div>
+    <div style="padding: 22px; line-height: 1.55; font-size: 15px;">
+      <p style="margin-top: 0;">Hallo {{eb_name}},</p>
+      <p>vielen Dank für die Anmeldung bei der Jugend des Deutschen Alpenvereins (JDAV) Sektion Hildesheim! Wir haben Eure Daten erfolgreich erhalten.</p>
+      <table style="width: 100%; border-collapse: collapse; margin: 16px 0; background-color: #f9fafb; border: 1px solid #e5e7eb; font-size: 14px;">
+        <tr><td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; font-weight: 600; width: 42%;">Teilnehmende Person</td><td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb;"><strong>{{kind_name}}</strong></td></tr>
+        <tr><td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; font-weight: 600;">Geburtsdatum</td><td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb;">{{geburtsdatum}}</td></tr>
+        <tr><td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; font-weight: 600;">Adresse</td><td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb;">{{adresse}}</td></tr>
+        <tr><td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; font-weight: 600;">Erziehungsberechtigte:r</td><td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb;">{{eb_name}}</td></tr>
+        <tr><td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; font-weight: 600;">E-Mail &amp; Notfallkontakt</td><td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb;">{{eb_email}} · {{eb_telefon}}</td></tr>
+        <tr><td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; font-weight: 600;">Foto-/Video-Einwilligung</td><td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb;">{{bilder_erlaubnis}}</td></tr>
+        <tr><td style="padding: 8px 12px; font-weight: 600;">Eingegangen am</td><td style="padding: 8px 12px;">{{erstellt_am}}</td></tr>
+      </table>
+      <p style="font-size: 13.5px; color: #4b5563; margin-top: 22px; margin-bottom: 0; border-top: 1px solid #e5e7eb; padding-top: 12px;">
+        Viele Grüße<br><strong style="color: #1f2937;">Dein Team der JDAV Hildesheim</strong>
+      </p>
+    </div>
+  </div>
+</body>
+</html>"""
+        html_body = _ersetze_platzhalter(html_vorlage, platzhalter_html)
+
+    attachments = []
+    if pdf_bytes:
+        attachments.append((
+            pdf_filename or "Aufnahmeantrag_DAV_Hildesheim.pdf",
+            pdf_bytes,
+            "application/pdf",
+        ))
+
+    _sende_mail(eb_email, subject, plain_body, html_body, attachments=attachments)
+    return True
 
 
 def sende_kuendigungs_eingangsbestaetigung(daten: dict) -> bool:

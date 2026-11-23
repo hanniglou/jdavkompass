@@ -1,5 +1,35 @@
 {% extends "base_extern.html" %}
 
+{% block title %}Anmeldung erfolgreich | JDAV Hildesheim{% endblock %}
+
 {% block content %}
-    Die Anmeldung war erfolgreich. Du kannst dieses Fenster jetzt schließen.
+<h1>Anmeldung eingegangen</h1>
+<p>
+    Vielen Dank für deine Anmeldung bei der JDAV Hildesheim. Wir haben deine Angaben erhalten und dir eine Bestätigungs-E-Mail geschickt.
+</p>
+
+{% if anmeldung_daten and anmeldung_daten.dav_mitglied_status == 'noch_kein_mitglied' %}
+<div style="margin: 1.5rem 0; padding: 1.15rem 1.35rem; border: 1px solid #f59e0b; border-left: 5px solid #d97706; border-radius: 8px; background: #fffbeb; color: #78350f;">
+    <h2 style="margin: 0 0 0.5rem 0; color: #92400e; font-size: 1.15rem;">Wichtig: DAV-Aufnahmeantrag unterschreiben &amp; einreichen</h2>
+    <p style="margin: 0 0 0.65rem 0; line-height: 1.55;">
+        Bitte unterschreibe den vorausgefüllten Antrag in den markierten Feldern (<strong>1× vorne, 4× hinten</strong>) und sende ihn per E-Mail an
+        <a href="mailto:info@dav-hildesheim.de" style="color: #92400e; font-weight: 600;">info@dav-hildesheim.de</a>
+        oder per Post an die Sektion (DAV Sektion Hildesheim, Lerchenkamp 52, 31137 Hildesheim).
+    </p>
+    <p style="margin: 0; font-size: 0.92rem; color: #92400e;">
+        Ohne DAV-Mitgliedschaft besteht kein Versicherungsschutz und wir können die Jugendgruppenbeiträge nicht abrechnen.
+    </p>
+</div>
+{% endif %}
+
+<h2>Wie geht es jetzt weiter?</h2>
+<p>
+    Wir prüfen die Anmeldung und ordnen
+    {% if anmeldung_daten and anmeldung_daten.kind_name %}
+        <strong>{{ anmeldung_daten.kind_name }}</strong>
+    {% else %}
+        die teilnehmende Person
+    {% endif %}
+    im Kompass der passenden Jugendgruppe zu. Falls Rückfragen zur DAV-Mitgliedschaft oder zur Gruppeneinteilung bestehen, melden wir uns bei Euch.
+</p>
 {% endblock %}

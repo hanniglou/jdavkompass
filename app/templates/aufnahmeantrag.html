@@ -1,0 +1,104 @@
+{% extends "base_extern.html" %}
+
+{% block title %}DAV-Aufnahmeantrag | JDAV Hildesheim{% endblock %}
+
+{% block content %}
+<h1>DAV-Aufnahmeantrag stellen</h1>
+<p>
+    Die Anmeldung für die Jugendgruppe ist gespeichert. Da
+    {% if anmeldung_daten.mitglied_vorname %}
+        <strong>{{ anmeldung_daten.mitglied_vorname }}</strong>
+    {% else %}
+        die teilnehmende Person
+    {% endif %}
+    noch kein DAV-Mitglied ist, trage bitte hier die Bankverbindung für den DAV-Aufnahmeantrag ein. Anschließend erhältst du den vollständig ausgefüllten Antrag direkt als Download und per Bestätigungs-E-Mail.
+</p>
+
+<form id="aufnahmeantrag-form">
+    <fieldset>
+        <legend>SEPA-Lastschriftmandat (für den DAV-Aufnahmeantrag)</legend>
+        <p style="padding-bottom: 0.75rem; margin-bottom: 0.75rem;">
+            <strong>Hinweis:</strong> Diese Angaben werden ausschließlich in den vorausgefüllten Aufnahmeantrag eingetragen und <strong>nicht</strong> im Kompass gespeichert.
+        </p>
+        <label>Vorname und Name (Kontoinhaber:in):
+            <input type="text" name="sepa_kontoinhaber" value="{{ anmeldung_daten.eb_name or '' }}" required>
+        </label><br>
+        <label>Name des Kreditinstituts:
+            <input type="text" name="sepa_kreditinstitut" required>
+        </label><br>
+        <label>IBAN:
+            <input type="text" name="sepa_iban" required>
+        </label><br>
+        <label>BIC:
+            <input type="text" name="sepa_bic" required>
+        </label><br>
+    </fieldset>
+
+    <details style="margin: 1rem 0 1.25rem 0; padding: 0.75rem 1rem; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff;">
+        <summary style="cursor: pointer; font-weight: 600;">Erweiterte Angaben</summary>
+        <div style="margin-top: 0.75rem;">
+            <label style="display: block; line-height: 1.5; margin-bottom: 0.5rem;">
+                <input type="checkbox" id="print_zeitschriften" name="print_zeitschriften" style="width: auto; display: inline; vertical-align: middle; margin: 0 0.5rem 0 0;">
+                Ich möchte das Mitgliedermagazin Panorama, sowie die Sektionszeitschrift die Hütte in gedruckter Form per Post bekommen.
+            </label>
+            <small>Standardmäßig sind die Sektionsmitteilungen auf digitalen Bezug voreingestellt.</small>
+        </div>
+    </details>
+
+    <p style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;">
+        <a href="{{ url_for('mitglieder.anmeldung') }}" class="btn-kompass btn-kompass--secondary-light">
+            Zurück
+        </a>
+        <button type="button" id="btn-download-und-weiter" class="btn-kompass btn-kompass--primary" onclick="ladeAufnahmeantragUndWeiter()">
+            Aufnahmeantrag herunterladen &amp; weiter
+        </button>
+    </p>
+</form>
+
+<script>
+    async function ladeAufnahmeantragUndWeiter() {
+        const btn = document.getElementById("btn-download-und-weiter");
+        const form = document.getElementById("aufnahmeantrag-form");
+
+        if (!form.reportValidity()) {
+            return;
+        }
+
+        const fd = new FormData(form);
+
+        if (btn) {
+            btn.disabled = true;
+        }
+
+        try {
+            const resp = await fetch(`{{ url_for('mitglieder.aufnahmeantrag_abschliessen') }}`, {
+                method: "POST",
+                body: fd,
+            });
+            if (!resp.ok) {
+                alert("Das PDF konnte leider nicht erstellt werden.");
+                if (btn) btn.disabled = false;
+                return;
+            }
+            const blob = await resp.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            const disposition = resp.headers.get("Content-Disposition") || "";
+            const match = disposition.match(/filename="?([^";]+)"?/i);
+            a.download = match ? match[1] : "Aufnahmeantrag_DAV_Hildesheim.pdf";
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+
+            setTimeout(() => {
+                URL.revokeObjectURL(url);
+                window.location.href = `{{ url_for('mitglieder.erfolg') }}`;
+            }, 350);
+        } catch (err) {
+            alert("Das PDF konnte leider nicht erstellt werden.");
+            if (btn) btn.disabled = false;
+        }
+    }
+</script>
+{% endblock %}

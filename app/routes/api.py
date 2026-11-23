@@ -57,6 +57,27 @@ def get_abrechnung_data():
                 "email": (row["email"] or "").strip(),
             })
 
+        # 2b. Gruppenwechsel-Hinweise pro Quellgruppe & Mitglied laden
+        wechsel_by_gruppe_mitglied = {}
+        try:
+            cursor.execute("""
+                SELECT
+                    quell_gruppe_id,
+                    mitglied_id,
+                    ziel_gruppe_name,
+                    wechsel_datum
+                FROM gruppenwechsel_hinweise
+                ORDER BY wechsel_datum ASC, id ASC
+            """)
+            for row in cursor.fetchall():
+                key = (row["quell_gruppe_id"], row["mitglied_id"])
+                wechsel_by_gruppe_mitglied[key] = {
+                    "ziel_gruppe_name": (row["ziel_gruppe_name"] or "").strip(),
+                    "wechsel_datum": (row["wechsel_datum"] or "").strip(),
+                }
+        except Exception:
+            wechsel_by_gruppe_mitglied = {}
+
         # 3. Aktuell zugeordnete Mitglieder pro Gruppe laden
         cursor.execute("""
             SELECT
@@ -65,7 +86,8 @@ def get_abrechnung_data():
                 m.mitgliedsnummer,
                 m.vorname,
                 m.nachname,
-                m.geburtsdatum
+                m.geburtsdatum,
+                m.kuendigung_datum
             FROM mitglied_jugendgruppen mj
             JOIN mitglieder m ON m.id = mj.mitglied_id
             ORDER BY m.vorname, m.nachname
@@ -73,12 +95,17 @@ def get_abrechnung_data():
         mitglieder_by_gruppe = {}
         for row in cursor.fetchall():
             m_id = row["id"]
-            mitglieder_by_gruppe.setdefault(row["jugendgruppe_id"], []).append({
+            g_id = row["jugendgruppe_id"]
+            wechsel = wechsel_by_gruppe_mitglied.get((g_id, m_id))
+            mitglieder_by_gruppe.setdefault(g_id, []).append({
                 "id": m_id,
                 "mitgliedsnummer": row["mitgliedsnummer"],
                 "vorname": row["vorname"],
                 "nachname": row["nachname"],
                 "geburtsdatum": row["geburtsdatum"],
+                "kuendigung_datum": row["kuendigung_datum"],
+                "wechsel_datum": wechsel["wechsel_datum"] if wechsel else None,
+                "wechsel_ziel_gruppe": wechsel["ziel_gruppe_name"] if wechsel else None,
                 "erziehungsberechtigte": eb_by_mitglied.get(m_id, []),
             })
 
@@ -102,7 +129,8 @@ def get_abrechnung_data():
                 m.mitgliedsnummer,
                 m.vorname,
                 m.nachname,
-                m.geburtsdatum
+                m.geburtsdatum,
+                m.kuendigung_datum
             FROM anwesenheit a
             JOIN mitglieder m ON m.id = a.mitglied_id
             {tn_where_sql}
@@ -112,7 +140,9 @@ def get_abrechnung_data():
         tn_termine_by_gruppe = {}
         for row in cursor.fetchall():
             m_id = row["mitglied_id"]
-            tn_termine_by_gruppe.setdefault(row["gruppe_id"], []).append({
+            g_id = row["gruppe_id"]
+            wechsel = wechsel_by_gruppe_mitglied.get((g_id, m_id))
+            tn_termine_by_gruppe.setdefault(g_id, []).append({
                 "datum": row["datum"],
                 "status": _map_anwesenheit_status(row["anwesend"]),
                 "mitglied_id": m_id,
@@ -120,6 +150,9 @@ def get_abrechnung_data():
                 "vorname": row["vorname"],
                 "nachname": row["nachname"],
                 "geburtsdatum": row["geburtsdatum"],
+                "kuendigung_datum": row["kuendigung_datum"],
+                "wechsel_datum": wechsel["wechsel_datum"] if wechsel else None,
+                "wechsel_ziel_gruppe": wechsel["ziel_gruppe_name"] if wechsel else None,
                 "erziehungsberechtigte": eb_by_mitglied.get(m_id, []),
             })
 

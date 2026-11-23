@@ -1,5 +1,22 @@
-from flask import Blueprint, flash, redirect, render_template, request, url_for
+from datetime import datetime
+import io
+import os
+import re
+
+from flask import (
+    Blueprint,
+    current_app,
+    flash,
+    redirect,
+    render_template,
+    request,
+    send_file,
+    session,
+    url_for,
+)
 from flask_login import current_user, login_required
+from pypdf import PdfReader, PdfWriter
+from pypdf.generic import NameObject
 
 from app.routes.auth import require_role
 from app.services.admin_service import log_aenderung
@@ -10,7 +27,7 @@ from app.services.kuendigung_service import (
     get_kuendigungen,
     verwerfe_kuendigung,
 )
-from app.services.mail_service import hole_adressbuch_eintraege
+from app.services.mail_service import hole_adressbuch_eintraege, sende_anmelde_bestaetigung
 from app.services.mitglieder_service import (
     add_mitglied_to_unapproved,
     get_mitglied_historie,
@@ -24,6 +41,8 @@ from app.services.mitglieder_service import (
 
 mitglieder_bp = Blueprint("mitglieder", __name__)
 
+AUFNAHMEANTRAG_DATEINAME_VORLAGE = "Aufnahmeantrag-JDAV Kompass.pdf"
+
 
 def _aktueller_bearbeiter() -> str:
     return (
@@ -34,25 +53,348 @@ def _aktueller_bearbeiter() -> str:
     ).strip()
 
 
+def _ermittle_aufnahmeantrag_pfad() -> str:
+    kandidaten = [
+        os.path.abspath(
+            os.path.join(
+                current_app.root_path,
+                "..",
+                "uploads",
+                AUFNAHMEANTRAG_DATEINAME_VORLAGE,
+            )
+        ),
+        os.path.abspath(
+            os.path.join(
+                os.getcwd(),
+                "uploads",
+                AUFNAHMEANTRAG_DATEINAME_VORLAGE,
+            )
+        ),
+    ]
+    for pfad in kandidaten:
+        if os.path.exists(pfad):
+            return pfad
+    return kandidaten[0]
+
+
+def _bereinige_dateiname_teil(text: str) -> str:
+    sauber = re.sub(r"[^A-Za-z0-9äöüÄÖÜß_-]+", "_", (text or "").strip())
+    return sauber.strip("_")
+
+
+def baue_aufnahmeantrag_dateiname(vorname: str, nachname: str) -> str:
+    teile = [p for p in [_bereinige_dateiname_teil(vorname), _bereinige_dateiname_teil(nachname)] if p]
+    if teile:
+        return f"Aufnahmeantrag_DAV_Hildesheim_{'_'.join(teile)}.pdf"
+    return "Aufnahmeantrag_DAV_Hildesheim.pdf"
+
+
+def erstelle_aufnahmeantrag_pdf_bytes(daten: dict) -> tuple[bytes, str]:
+    m_vorname = (daten.get("mitglied_vorname") or "").strip()
+    m_nachname = (daten.get("mitglied_nachname") or "").strip()
+    geb_raw = (daten.get("mitglied_geburtsdatum") or "").strip()
+    try:
+        geb_formatiert = (
+            datetime.strptime(geb_raw, "%Y-%m-%d").strftime("%d.%m.%Y")
+            if geb_raw
+            else ""
+        )
+    except ValueError:
+        geb_formatiert = geb_raw
+
+    strasse_nr = " ".join(
+        part for part in [(daten.get("strasse") or "").strip(), (daten.get("hausnummer") or "").strip()] if part
+    )
+    plz_ort = " ".join(
+        part for part in [(daten.get("plz") or "").strip(), (daten.get("ort") or "").strip()] if part
+    )
+
+    eb_vorname = (daten.get("eb_vorname") or "").strip()
+    eb_nachname = (daten.get("eb_nachname") or "").strip()
+    eb_voll = " ".join(part for part in [eb_vorname, eb_nachname] if part)
+    eb_email = (daten.get("eb_email") or "").strip()
+    eb_telefon = (daten.get("eb_telefon") or "").strip()
+
+    sepa_kontoinhaber = ((daten.get("sepa_kontoinhaber") or "").strip() or eb_voll).strip()
+    sepa_kreditinstitut = (daten.get("sepa_kreditinstitut") or "").strip()
+    sepa_iban = re.sub(r"\s+", "", (daten.get("sepa_iban") or "")).upper()
+    sepa_bic = re.sub(r"\s+", "", (daten.get("sepa_bic") or "")).upper()
+
+    print_gewuenscht = str(daten.get("print_zeitschriften") or "").lower() in ("1", "true", "on", "yes")
+    digital_zustand = NameObject("/Off") if print_gewuenscht else NameObject("/Ja")
+    off_zustand = NameObject("/Off")
+
+    pdf_path = _ermittle_aufnahmeantrag_pfad()
+    reader = PdfReader(pdf_path)
+    writer = PdfWriter()
+    writer.append(reader)
+
+    feld_werte = {
+        "Name Sektion": "Hildesheim",
+        "Straße Hausnummer Sektion": "Lerchenkamp 52",
+        "PLZ Wohnort Sektion": "31137 Hildesheim",
+        "Name Sitz Sektion Sepa": "Hildesheim",
+        "Name Antragsteller": m_nachname,
+        "Vorname Antragsteller": m_vorname,
+        "Geburtsdatum Antragsteller": geb_formatiert,
+        "Straße Hausnummer Antragsteller": strasse_nr,
+        "PLZ Wohnort Antragsteller": plz_ort,
+        "Mobil Antragsteller": eb_telefon,
+        "E-Mail Antragsteller": eb_email,
+        "Gesetzlicher Vertreter": eb_voll,
+        "Vorname Name Kontoinhaber": sepa_kontoinhaber,
+        "Name Kreditinstitut": sepa_kreditinstitut,
+        "IBAN": sepa_iban,
+        "BIC": sepa_bic,
+    }
+
+    for page in writer.pages:
+        writer.update_page_form_field_values(page, feld_werte, auto_regenerate=False)
+        annots = page.get("/Annots")
+        if annots:
+            for annot_ref in annots:
+                annot = annot_ref.get_object()
+                feld_name = annot.get("/T")
+                if feld_name in ("Check Box Panorama", "Check Box Newsletter"):
+                    annot.update({
+                        NameObject("/V"): digital_zustand,
+                        NameObject("/AS"): digital_zustand,
+                    })
+                elif feld_name == "Check Box Sektionsmitteilungen":
+                    annot.update({
+                        NameObject("/V"): off_zustand,
+                        NameObject("/AS"): off_zustand,
+                    })
+
+    ausgabe = io.BytesIO()
+    writer.write(ausgabe)
+    dateiname = baue_aufnahmeantrag_dateiname(m_vorname, m_nachname)
+    return ausgabe.getvalue(), dateiname
+
+
+def _versende_bestaetigungsmail_aus_session(
+    daten: dict,
+    pdf_bytes: bytes | None = None,
+    pdf_filename: str | None = None,
+) -> None:
+    if not daten or daten.get("bestaetigungsmail_gesendet"):
+        return
+
+    sende_anmelde_bestaetigung(
+        {
+            "kind_name": daten.get("kind_name", ""),
+            "geburtsdatum": daten.get("geburtsdatum_formatiert", ""),
+            "adresse": daten.get("adresse", ""),
+            "eb_name": daten.get("eb_name", ""),
+            "eb_email": daten.get("eb_email", ""),
+            "eb_telefon": daten.get("eb_telefon", ""),
+            "bilder_erlaubnis": daten.get("bilder_erlaubnis", "Nicht erteilt"),
+            "erstellt_am": daten.get("erstellt_am", datetime.now().strftime("%d.%m.%Y %H:%M")),
+        },
+        pdf_bytes=pdf_bytes,
+        pdf_filename=pdf_filename,
+    )
+    daten["bestaetigungsmail_gesendet"] = True
+    session["anmeldung_daten"] = daten
+
+
 @mitglieder_bp.route("/anmeldung", methods=["GET", "POST"])
 def anmeldung():
     if request.method == "POST":
-        add_mitglied_to_unapproved(request.form)
-        vorname = request.form.get("vorname", "").strip()
-        nachname = request.form.get("nachname", "").strip()
+        form_payload = request.form.to_dict()
+        if not (form_payload.get("mitglied_geschlecht") or "").strip():
+            form_payload["mitglied_geschlecht"] = "Keine Angabe"
+
+        mitglied_status = (form_payload.get("dav_mitglied_status") or "bereits_mitglied").strip()
+        if "mitgliedschaft_bestaetigt" not in form_payload:
+            form_payload["mitgliedschaft_bestaetigt"] = (
+                "1" if mitglied_status == "bereits_mitglied" else "beantragt"
+            )
+
+        add_mitglied_to_unapproved(form_payload)
+
+        m_vorname = (form_payload.get("mitglied_vorname") or "").strip()
+        m_nachname = (form_payload.get("mitglied_nachname") or "").strip()
+        kind_name = " ".join(part for part in [m_vorname, m_nachname] if part)
+
+        geb_raw = (form_payload.get("mitglied_geburtsdatum") or "").strip()
+        try:
+            geburtsdatum = (
+                datetime.strptime(geb_raw, "%Y-%m-%d").strftime("%d.%m.%Y")
+                if geb_raw
+                else ""
+            )
+        except ValueError:
+            geburtsdatum = geb_raw
+
+        strasse = (form_payload.get("strasse") or "").strip()
+        hausnummer = (form_payload.get("hausnummer") or "").strip()
+        plz = (form_payload.get("plz") or "").strip()
+        ort = (form_payload.get("ort") or "").strip()
+
+        strasse_nr = " ".join(part for part in [strasse, hausnummer] if part)
+        plz_ort = " ".join(part for part in [plz, ort] if part)
+        adresse = ", ".join(part for part in [strasse_nr, plz_ort] if part)
+
+        eb_vorname = (form_payload.get("eb_vorname") or "").strip()
+        eb_nachname = (form_payload.get("eb_nachname") or "").strip()
+        eb_name = " ".join(part for part in [eb_vorname, eb_nachname] if part)
+        eb_email = (form_payload.get("eb_email") or "").strip()
+        eb_telefon = (form_payload.get("eb_telefon") or "").strip()
+
+        bilder_erlaubnis = "Erteilt" if form_payload.get("bilder_bestaetigt") else "Nicht erteilt"
+        erstellt_am = datetime.now().strftime("%d.%m.%Y %H:%M")
+
+        anmeldung_daten = {
+            "mitglied_vorname": m_vorname,
+            "mitglied_nachname": m_nachname,
+            "kind_name": kind_name,
+            "mitglied_geburtsdatum": geb_raw,
+            "geburtsdatum_formatiert": geburtsdatum,
+            "strasse": strasse,
+            "hausnummer": hausnummer,
+            "plz": plz,
+            "ort": ort,
+            "adresse": adresse,
+            "eb_vorname": eb_vorname,
+            "eb_nachname": eb_nachname,
+            "eb_name": eb_name,
+            "eb_email": eb_email,
+            "eb_telefon": eb_telefon,
+            "bilder_erlaubnis": bilder_erlaubnis,
+            "erstellt_am": erstellt_am,
+            "dav_mitglied_status": mitglied_status,
+            "bestaetigungsmail_gesendet": False,
+        }
+        session["anmeldung_daten"] = anmeldung_daten
+
         log_aenderung(
             "Online-Anmeldung eingegangen",
-            f"{vorname} {nachname}".strip(),
+            kind_name
+            or f"{form_payload.get('vorname', '').strip()} {form_payload.get('nachname', '').strip()}".strip(),
             account_name="Öffentliches Formular",
         )
+
+        if mitglied_status == "noch_kein_mitglied":
+            return redirect(url_for("mitglieder.aufnahmeantrag_seite"))
+
+        try:
+            _versende_bestaetigungsmail_aus_session(anmeldung_daten)
+        except Exception as mail_err:
+            current_app.logger.warning("Anmelde-Bestätigungsmail fehlgeschlagen: %s", mail_err)
+
         return redirect(url_for("mitglieder.erfolg"))
 
     return render_template("anmeldung.html")
 
 
+@mitglieder_bp.route("/anmeldung/aufnahmeantrag", methods=["GET"])
+def aufnahmeantrag_seite():
+    daten = session.get("anmeldung_daten") or {}
+    return render_template("aufnahmeantrag.html", anmeldung_daten=daten)
+
+
+@mitglieder_bp.route("/anmeldung/aufnahmeantrag/abschliessen", methods=["POST"])
+def aufnahmeantrag_abschliessen():
+    gespeichert = session.get("anmeldung_daten") or {}
+
+    def _wert(feld_name: str) -> str:
+        val = (request.form.get(feld_name) or "").strip()
+        if val:
+            return val
+        return str(gespeichert.get(feld_name) or "").strip()
+
+    m_vorname = _wert("mitglied_vorname")
+    m_nachname = _wert("mitglied_nachname")
+
+    pdf_daten = {
+        "mitglied_vorname": m_vorname,
+        "mitglied_nachname": m_nachname,
+        "mitglied_geburtsdatum": _wert("mitglied_geburtsdatum"),
+        "strasse": _wert("strasse"),
+        "hausnummer": _wert("hausnummer"),
+        "plz": _wert("plz"),
+        "ort": _wert("ort"),
+        "eb_vorname": _wert("eb_vorname"),
+        "eb_nachname": _wert("eb_nachname"),
+        "eb_email": _wert("eb_email"),
+        "eb_telefon": _wert("eb_telefon"),
+        "sepa_kontoinhaber": (request.form.get("sepa_kontoinhaber") or "").strip(),
+        "sepa_kreditinstitut": (request.form.get("sepa_kreditinstitut") or "").strip(),
+        "sepa_iban": (request.form.get("sepa_iban") or "").strip(),
+        "sepa_bic": (request.form.get("sepa_bic") or "").strip(),
+        "print_zeitschriften": request.form.get("print_zeitschriften"),
+    }
+
+    pdf_bytes, dateiname = erstelle_aufnahmeantrag_pdf_bytes(pdf_daten)
+
+    try:
+        _versende_bestaetigungsmail_aus_session(
+            gespeichert,
+            pdf_bytes=pdf_bytes,
+            pdf_filename=dateiname,
+        )
+    except Exception as mail_err:
+        current_app.logger.warning("Anmelde-Bestätigungsmail mit PDF fehlgeschlagen: %s", mail_err)
+
+    return send_file(
+        io.BytesIO(pdf_bytes),
+        mimetype="application/pdf",
+        as_attachment=True,
+        download_name=dateiname,
+    )
+
+
+@mitglieder_bp.route("/anmeldung/aufnahmeantrag.pdf", methods=["GET", "POST"])
+def aufnahmeantrag_pdf():
+    src = request.form if request.method == "POST" else request.args
+    gespeichert = session.get("anmeldung_daten") or {}
+
+    def _wert(feld_name: str) -> str:
+        val = (src.get(feld_name) or "").strip()
+        if val:
+            return val
+        return str(gespeichert.get(feld_name) or "").strip()
+
+    m_vorname = _wert("mitglied_vorname")
+    m_nachname = _wert("mitglied_nachname")
+
+    pdf_bytes, dateiname = erstelle_aufnahmeantrag_pdf_bytes({
+        "mitglied_vorname": m_vorname,
+        "mitglied_nachname": m_nachname,
+        "mitglied_geburtsdatum": _wert("mitglied_geburtsdatum"),
+        "strasse": _wert("strasse"),
+        "hausnummer": _wert("hausnummer"),
+        "plz": _wert("plz"),
+        "ort": _wert("ort"),
+        "eb_vorname": _wert("eb_vorname"),
+        "eb_nachname": _wert("eb_nachname"),
+        "eb_email": _wert("eb_email"),
+        "eb_telefon": _wert("eb_telefon"),
+        "sepa_kontoinhaber": (src.get("sepa_kontoinhaber") or "").strip(),
+        "sepa_kreditinstitut": (src.get("sepa_kreditinstitut") or "").strip(),
+        "sepa_iban": (src.get("sepa_iban") or "").strip(),
+        "sepa_bic": (src.get("sepa_bic") or "").strip(),
+        "print_zeitschriften": src.get("print_zeitschriften"),
+    })
+
+    return send_file(
+        io.BytesIO(pdf_bytes),
+        mimetype="application/pdf",
+        as_attachment=True,
+        download_name=dateiname,
+    )
+
+
 @mitglieder_bp.route("/erfolg")
 def erfolg():
-    return render_template("erfolg.html")
+    daten = session.get("anmeldung_daten") or {}
+    if daten and not daten.get("bestaetigungsmail_gesendet"):
+        try:
+            _versende_bestaetigungsmail_aus_session(daten)
+        except Exception as mail_err:
+            current_app.logger.warning("Nachgelagerte Anmelde-Bestätigungsmail fehlgeschlagen: %s", mail_err)
+    return render_template("erfolg.html", anmeldung_daten=daten)
 
 
 @mitglieder_bp.route("/mitglieder", methods=["GET"])

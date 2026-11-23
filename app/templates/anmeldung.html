@@ -10,18 +10,10 @@
 
 <form action="{{ url_for('mitglieder.anmeldung') }}" method="POST">
     <fieldset>
-        <legend>Teilnehmer</legend>
-        <label>Vorname: <input type="text" name="mitglied_vorname" required></label><br>
+        <legend>Teilnehmer:in</legend>
+        <label>Vorname: <input type="text" id="mitglied_vorname" name="mitglied_vorname" required></label><br>
         <label>Nachname: <input type="text" name="mitglied_nachname" required></label><br>
         <label>Geburtsdatum: <input type="date" name="mitglied_geburtsdatum" required></label><br>
-        <label>Geschlecht:
-            <select name="mitglied_geschlecht">
-                <option value="m">Männlich</option>
-                <option value="w">Weiblich</option>
-                <option value="d">Divers</option>
-                <option value="-">Das möchte ich nicht angeben</option>
-            </select>
-        </label><br>
     </fieldset>
 
     <fieldset>
@@ -33,7 +25,7 @@
     </fieldset>
 
     <fieldset>
-        <legend>Erziehungsberechtigte/r</legend>
+        <legend>Erziehungsberechtigte:r</legend>
         <label>Vorname: <input type="text" name="eb_vorname" required></label><br>
         <label>Nachname: <input type="text" name="eb_nachname" required></label><br>
         <label>E-Mail: <input type="email" name="eb_email" required></label><br>
@@ -42,9 +34,19 @@
 
     <fieldset>
         <legend>DAV-Mitgliedschaft</legend>
-        <p>Die Anmeldung erfordert eine existierende Mitgliedschaft im DAV oder einen gestellten DAV Mitgliedsantrag. Ein Aufnahmeantrag kann <a href="https://www.dav-hildesheim.de/verein/service/mitgliedschaft">hier</a> gestellt werden.</p>
-        <label>
-            <input type="checkbox" name="mitgliedschaft_bestaetigt" required> Ich bestätige, dass eine gültige DAV-Mitgliedschaft besteht, oder ein Mitgliedsantrag an den DAV gestellt worden ist, oder dass jener gestellt wird, sobald die teilnehmende Person nach dem Schnuppern die Gruppe weiter besucht.
+        <p>
+            Die Teilnahme an der Jugendgruppe erfordert eine Mitgliedschaft im Deutschen Alpenverein (DAV).
+            Falls noch keine Mitgliedschaft besteht, kann im nächsten Schritt ein Antrag gestellt werden.
+        </p>
+
+        <label style="display: block; line-height: 1.5; margin-bottom: 0.5rem;">
+            <input type="radio" name="dav_mitglied_status" value="noch_kein_mitglied" checked required style="width: auto; display: inline; vertical-align: middle; margin: 0 0.5rem 0 0;">
+            <span class="vorname-label">Diese Person</span> ist noch kein Mitglied
+        </label>
+
+        <label style="display: block; line-height: 1.5; margin-bottom: 0.5rem;">
+            <input type="radio" name="dav_mitglied_status" value="bereits_mitglied" required style="width: auto; display: inline; vertical-align: middle; margin: 0 0.5rem 0 0;">
+            <span class="vorname-label">Diese Person</span> ist bereits Mitglied.
         </label>
     </fieldset>
 
@@ -74,15 +76,15 @@
     <fieldset>
         <legend>Unterschrift *Pflichtfeld</legend>
         <label>
-            Im unteren Feld kann eine Unterschrift endweder per Maus oder per Finger gegeben werden.
+            Im unteren Feld kann eine Unterschrift entweder per Maus oder per Finger gegeben werden.
         </label>
-        
+
         <label style="display: block; line-height: 1.5; margin-bottom: 0.5rem;">
             <input type="checkbox" name="datenschutz_bestaetigt" required style="width: auto; display: inline; vertical-align: middle; margin: 0 0.5rem 0 0;">Ich habe die <a href="{{ url_for('index.download', file='Datenschutzerklärung.pdf') }}" style="display: inline; margin: 0; padding: 0;">Datenschutzerklärung</a> gelesen und bin mit der digitalen Datenvereinbarung einverstanden.
         </label>
 
         <label style="display: block; line-height: 1.5; margin-bottom: 0.5rem;">
-            <input type="checkbox" name="bilder_bestaetigt" style="width: auto; display: inline; vertical-align: middle; margin: 0 0.5rem 0 0;">Während der Jugendgruppe dürfen von der teilnehmenden Personen Bild und Videomaterial aufgenommen werden und auf den Vereinsmedien der JDAV (Vereinszeitschrift, Socialmedia) veröffentlicht werden.
+            <input type="checkbox" name="bilder_bestaetigt" style="width: auto; display: inline; vertical-align: middle; margin: 0 0.5rem 0 0;">Während der Jugendgruppe dürfen von der teilnehmenden Person Bild- und Videomaterial aufgenommen werden und auf den Vereinsmedien der JDAV (Vereinszeitschrift, Social Media) veröffentlicht werden.
         </label>
 
         <label style="display: block; line-height: 1.5; margin-bottom: 0.5rem;">
@@ -95,10 +97,23 @@
         <input type="hidden" name="unterschrift" id="unterschrift">
     </fieldset>
 
-    <button type="submit" class="btn-kompass btn-kompass--success">Teilnehmer anmelden</button>
+    <button type="submit" class="btn-kompass btn-kompass--success">Teilnehmer:in anmelden</button>
 </form>
 
 <script>
+    const vornameInput = document.getElementById('mitglied_vorname');
+    const vornameLabels = document.querySelectorAll('.vorname-label');
+
+    function aktualisiereVornameOptionen() {
+        const name = (vornameInput.value || '').trim();
+        vornameLabels.forEach((el) => {
+            el.textContent = name || 'Diese Person';
+        });
+    }
+
+    vornameInput.addEventListener('input', aktualisiereVornameOptionen);
+    window.addEventListener('DOMContentLoaded', aktualisiereVornameOptionen);
+
     const canvas = document.getElementById('signature-pad');
     canvas.style.touchAction = "none";
     const ctx = canvas.getContext('2d');
