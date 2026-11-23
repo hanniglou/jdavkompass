@@ -4,94 +4,68 @@
 
 {% block content %}
 <section class="page-section">
-    <div class="cards">
-        {% for gruppe in gruppen %}
-        <a class="card" href="{{ url_for('gruppe.gruppe', gruppe_id=gruppe.id) }}">
-            <h2 class="gruppe-titel">{{ gruppe.name }}</h2>
+    <h1>Gruppenübersicht</h1>
 
-            <div class="gruppe-info">
-                <div class="info-item">
-                    <strong>{{ gruppe['wochentag'] }}</strong> {{ gruppe.startzeit }} - {{ gruppe.endzeit }}
-                </div>
-
-                {% if gruppe.gruppenleiter %}
-                <div class="info-item">
-                    <strong>Gruppenleiter:</strong> {{ gruppe.gruppenleiter | join(', ') }}
-                </div>
-                {% endif %}
-
-                {% if gruppe.mitglieder %}
-                <div class="info-item">
-                    <strong>Teilnehmende:</strong> {{ gruppe.mitglieder | join(', ') }}
-                </div>
-                {% endif %}
-            </div>
+    <div class="zeitraum-bar gruppen-filter-bar">
+        <span class="zeitraum-label">Filter:</span>
+        <a href="{{ url_for('gruppen.gruppen', filter='alle') }}"
+           class="zeitraum-pill {% if filter_modus != 'meine' %}is-active{% endif %}">
+            Alle Gruppen
         </a>
-        {% endfor %}
-
-        <div class="form-card" id="neue-gruppe-form" style="display:none;">
-            <form method="POST" action="{{ url_for('gruppen.neue_gruppe') }}">
-
-                <div class="form-section">
-                    <h3>Neue Gruppe</h3>
-
-                    <div class="form-grid">
-
-                        <div class="form-group">
-                            <label for="neue-gruppe-name">Name</label>
-                            <input id="neue-gruppe-name" type="text" name="name" required>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="neue-gruppe-beschreibung">Beschreibung</label>
-                            <textarea id="neue-gruppe-beschreibung" name="beschreibung"></textarea>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="neue-gruppe-wochentag">Wochentag</label>
-                            <select id="neue-gruppe-wochentag" name="wochentag" required>
-                                <option value="Montag">Montag</option>
-                                <option value="Dienstag">Dienstag</option>
-                                <option value="Mittwoch">Mittwoch</option>
-                                <option value="Donnerstag">Donnerstag</option>
-                                <option value="Freitag">Freitag</option>
-                                <option value="Samstag">Samstag</option>
-                                <option value="Sonntag">Sonntag</option>
-                            </select>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="neue-gruppe-startzeit">Startzeit</label>
-                            <input id="neue-gruppe-startzeit" type="time" name="startzeit" required>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="neue-gruppe-endzeit">Endzeit</label>
-                            <input id="neue-gruppe-endzeit" type="time" name="endzeit" required>
-                        </div>
-
-                    </div>
-                </div>
-
-                <div class="form-actions">
-                    <button type="submit" class="btn-kompass btn-kompass--success">Gruppe erstellen</button>
-                </div>
-
-            </form>
-        </div>
+        <a href="{{ url_for('gruppen.gruppen', filter='meine') }}"
+           class="zeitraum-pill {% if filter_modus == 'meine' %}is-active{% endif %}">
+            Meine Gruppen
+        </a>
     </div>
 
-    {% if current_user.role >= 3 %}
-    <button type="button" id="neue-gruppe-btn" class="btn-kompass btn-kompass--success">
-        Neue Gruppe erstellen
-    </button>
-    {% endif %}
-</section>
+    {% if gruppen_nach_tag %}
+        {% for tag, tages_gruppen in gruppen_nach_tag %}
+        <div class="gruppen-tag-block">
+            <h2 class="gruppen-tag-heading">{{ tag }}</h2>
 
-<script>
-document.getElementById('neue-gruppe-btn').addEventListener('click', function() {
-    const form = document.getElementById('neue-gruppe-form');
-    form.style.display = (form.style.display === 'none') ? 'block' : 'none';
-});
-</script>
+            <div class="cards">
+                {% for gruppe in tages_gruppen %}
+                <a class="card" href="{{ url_for('gruppe.gruppe', gruppe_id=gruppe.id) }}">
+                    <h2 class="gruppe-titel">{{ gruppe.name }}</h2>
+                    <h3 class="gruppe-zeit-subheading">
+                        <strong>{{ gruppe.wochentag }}</strong>
+                        {% if gruppe.startzeit or gruppe.endzeit %}
+                            {{ gruppe.startzeit[:5] if gruppe.startzeit else '' }}{% if gruppe.startzeit and gruppe.endzeit %}-{% endif %}{{ gruppe.endzeit[:5] if gruppe.endzeit else '' }} Uhr
+                        {% endif %}
+                    </h3>
+
+                    <div class="gruppe-info">
+                        <div class="info-item">
+                            <strong>Gruppenart:</strong> {{ gruppe.gruppenart or "—" }}
+                        </div>
+
+                        <div class="info-item">
+                            <strong>Jugendleitende</strong>
+                            {{ gruppe.gruppenleiter_vornamen | join(', ') if gruppe.gruppenleiter_vornamen else "—" }}
+                        </div>
+
+                        <div class="info-item">
+                            <strong>Teilnehmende</strong>
+                            {{ gruppe.mitglieder_vornamen | join(', ') if gruppe.mitglieder_vornamen else "—" }}
+                        </div>
+                    </div>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <p class="text-muted">
+            {% if filter_modus == 'meine' %}
+                Dir sind aktuell keine Gruppen als Jugendleiter:in zugeordnet.
+            {% else %}
+                Noch keine Gruppen vorhanden.
+            {% endif %}
+        </p>
+    {% endif %}
+
+    <p class="text-muted gruppen-admin-hinweis">
+        Suchst du „Neue Gruppe erstellen“? Diese Funktion wurde ins <a href="{{ url_for('admin.admin_gruppen') }}" class="mitglied-link">Admin Panel</a> verschoben.
+    </p>
+</section>
 {% endblock %}

@@ -1,0 +1,67 @@
+{% extends "base_intern.html" %}
+
+{% block title %}Texte & Footer - Admin - JDAV Hildesheim{% endblock %}
+
+{% block content %}
+<section class="page-section">
+    <h1>Admin Panel – Texte &amp; Footer</h1>
+    {% include "admin/_nav.html" %}
+
+    <form method="POST" action="{{ url_for('admin.admin_texte') }}">
+        <div class="form-card admin-panel-card">
+            <h3>Footer (interner Bereich)</h3>
+            <p class="admin-lead">
+                Jede Zeile wird unten im Footer als eigene Zeile dargestellt.
+            </p>
+            <div class="form-group">
+                <label for="footer-text">Footer-Inhalt</label>
+                <textarea id="footer-text"
+                          name="footer_text"
+                          rows="4"
+                          class="textarea-resizable"
+                          required>{{ texte.footer_text }}</textarea>
+            </div>
+        </div>
+
+        <div class="form-card admin-panel-card">
+            <h3>Anmeldung (/anmeldung)</h3>
+            <p class="admin-lead">
+                Texte und Beitragsübersicht für das öffentliche Anmeldeformular.
+            </p>
+
+            <div class="form-group">
+                <label for="anmeldung-intro">Einleitungstext</label>
+                <textarea id="anmeldung-intro"
+                          name="anmeldung_intro_text"
+                          rows="3"
+                          class="textarea-resizable"
+                          required>{{ texte.anmeldung_intro_text }}</textarea>
+            </div>
+
+            <div class="form-group form-group--top-spaced">
+                <label for="anmeldung-beitraege-intro">Hinweis zu Jugendgruppenbeiträgen</label>
+                <textarea id="anmeldung-beitraege-intro"
+                          name="anmeldung_beitraege_intro"
+                          rows="4"
+                          class="textarea-resizable"
+                          required>{{ texte.anmeldung_beitraege_intro }}</textarea>
+            </div>
+
+            <div class="form-group form-group--top-spaced">
+                <label for="anmeldung-beitraege-details">Betreuungsgeld &amp; Eintrittspreise (Zeile für Zeile)</label>
+                <textarea id="anmeldung-beitraege-details"
+                          name="anmeldung_beitraege_details"
+                          rows="10"
+                          class="textarea-resizable"
+                          required>{{ texte.anmeldung_beitraege_details }}</textarea>
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn-kompass btn-kompass--success">
+                Änderungen speichern
+            </button>
+        </div>
+    </form>
+</section>
+{% endblock %}

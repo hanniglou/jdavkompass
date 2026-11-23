@@ -23,6 +23,8 @@ from .routes.profile import profile_bp
 from .routes.api import api_bp
 from .routes.kuendigung import kuendigung_bp
 
+from app.services.admin_service import hole_einstellungen, hole_gruppenarten
+
 login_manager = LoginManager()
 login_manager.login_view = "auth.login"
 load_dotenv()
@@ -39,13 +41,14 @@ def create_app():
     init_db()
 
     app = Flask(__name__)
+    is_debug = os.getenv("FLASK_DEBUG", "").lower() in {"1", "true", "yes"}
     app.config["SECRET_KEY"] = os.getenv("SECRET_KEY")
     app.config.update(
         SESSION_COOKIE_HTTPONLY=True,
-        SESSION_COOKIE_SECURE=True,
+        SESSION_COOKIE_SECURE=not is_debug,
         SESSION_COOKIE_SAMESITE="Lax",
         REMEMBER_COOKIE_HTTPONLY=True,
-        REMEMBER_COOKIE_SECURE=True,
+        REMEMBER_COOKIE_SECURE=not is_debug,
         PERMANENT_SESSION_LIFETIME=timedelta(hours=72),
     )
 
@@ -75,6 +78,20 @@ def create_app():
     file_handler.setFormatter(JSONFormatter())
     app.logger.setLevel(logging.INFO)
     app.logger.addHandler(file_handler)
+
+    @app.context_processor
+    def inject_global_texts():
+        cfg = hole_einstellungen()
+        footer_intern_zeilen = [z.strip() for z in cfg["footer_text"].splitlines() if z.strip()]
+        footer_extern_zeilen = [z.strip() for z in cfg["footer_extern_text"].splitlines() if z.strip()]
+        return {
+            "footer_intern_zeilen": footer_intern_zeilen,
+            "footer_extern_zeilen": footer_extern_zeilen,
+            "footer_text_raw": cfg["footer_text"],
+            "footer_extern_text_raw": cfg["footer_extern_text"],
+            "anmeldung_cfg": cfg,
+            "gruppenarten": hole_gruppenarten(),
+        }
 
     @app.before_request
     def start_timer():

@@ -5,9 +5,12 @@
 {% block content %}
 <section class="page-section">
     <h1>{{ gruppe.name }}</h1>
+    {% set von_mitglieder = (request.args.get('from') == 'mitglieder') or ('/mitglieder' in (request.referrer or '')) %}
     <div class="back-link-row">
-        <a href="{{ url_for('gruppen.gruppen') }}" class="back-link" onclick="event.preventDefault(); window.KompassNav.goBack(this.href);">
-            &larr; Zurück zur Gruppenübersicht
+        <a href="{{ url_for('mitglieder.mitglieder') if von_mitglieder else url_for('gruppen.gruppen') }}"
+           class="back-link"
+           onclick="event.preventDefault(); window.KompassNav.goBack(this.href);">
+            &larr; {% if von_mitglieder %}Zurück zum Mitgliedermanagement{% else %}Zurück zur Gruppenübersicht{% endif %}
         </a>
     </div>
 
@@ -75,20 +78,60 @@
                     {% set gesamt_spalten = alle_daten|length + 2 %}
 
                     <tr class="gruppen-zwischenzeile">
-                        <td colspan="{{ gesamt_spalten }}">Mitglieder</td>
+                        <td colspan="{{ gesamt_spalten }}">
+                            {% if current_user.role >= 2 %}
+                                <span class="zwischenzeile-hauptzeile">Teilnehmende</span>
+                                <span class="zwischenzeile-folgezeile">
+                                    · aktuell {{ anzahl_aktuell|default(mitglieder|length) }} (zum Quartalsende {{ anzahl_quartalsende|default(mitglieder|length) }})
+                                </span>
+                            {% else %}
+                                <span class="zwischenzeile-hauptzeile">Teilnehmende</span>
+                            {% endif %}
+                        </td>
                     </tr>
 
                     {% for mitglied in mitglieder %}
                     <tr>
                         {% if mitglied.kuendigung_datum_de %}
                         <td class="kuendigung-cell">
-                            <div class="kuendigung-cell-name">{{ mitglied.vorname }} {{ mitglied.nachname }}</div>
+                            <div class="kuendigung-cell-name">
+                                {% if current_user.role >= 2 %}
+                                <a href="{{ url_for('mitglieder.mitglied_bearbeiten', mitglied_id=mitglied.id, from='gruppe', gruppe_name=gruppe.name) }}" class="mitglied-link">
+                                    {{ mitglied.vorname }} {{ mitglied.nachname }}
+                                </a>
+                                {% else %}
+                                {{ mitglied.vorname }} {{ mitglied.nachname }}
+                                {% endif %}
+                            </div>
                             <div class="kuendigung-cell-meta">
                                 gekündigt zum<br>{{ mitglied.kuendigung_datum_de }}
                             </div>
                         </td>
+                        {% elif mitglied.archiviert %}
+                        <td class="archiv-cell">
+                            <div class="kuendigung-cell-name">
+                                {% if current_user.role >= 2 %}
+                                <a href="{{ url_for('mitglieder.mitglied_bearbeiten', mitglied_id=mitglied.id, from='gruppe', gruppe_name=gruppe.name) }}" class="mitglied-link">
+                                    {{ mitglied.vorname }} {{ mitglied.nachname }}
+                                </a>
+                                {% else %}
+                                {{ mitglied.vorname }} {{ mitglied.nachname }}
+                                {% endif %}
+                            </div>
+                            <div class="kuendigung-cell-meta">
+                                archiviert
+                            </div>
+                        </td>
                         {% else %}
-                        <td>{{ mitglied.vorname }} {{ mitglied.nachname }}</td>
+                        <td>
+                            {% if current_user.role >= 2 %}
+                            <a href="{{ url_for('mitglieder.mitglied_bearbeiten', mitglied_id=mitglied.id, from='gruppe', gruppe_name=gruppe.name) }}" class="mitglied-link">
+                                {{ mitglied.vorname }} {{ mitglied.nachname }}
+                            </a>
+                            {% else %}
+                            {{ mitglied.vorname }} {{ mitglied.nachname }}
+                            {% endif %}
+                        </td>
                         {% endif %}
 
                         {% for datum in alle_daten | reverse %}
@@ -114,8 +157,36 @@
                     </tr>
                     {% endfor %}
 
+                    {% for hinweis in gekuendigt_folgequartal_hinweise|default([]) %}
+                    <tr class="gruppen-zwischenzeile zwischenzeile--amber">
+                        <td colspan="{{ gesamt_spalten }}">
+                            <div class="zwischenzeile-hauptzeile">
+                                {{ hinweis.name }} hat zum {{ hinweis.kuendigung_datum_de }} gekündigt.
+                            </div>
+                            <div class="zwischenzeile-folgezeile">
+                                Falls {{ hinweis.name }} weiterhin zur Gruppe erscheint melde dich bitte bei deinen JuRefs!
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+
+                    {% for hinweis in verschoben_folgequartal_hinweise|default([]) %}
+                    <tr class="gruppen-zwischenzeile zwischenzeile--blue">
+                        <td colspan="{{ gesamt_spalten }}">
+                            <div class="zwischenzeile-hauptzeile">
+                                {{ hinweis.name }} wurde{% if hinweis.datum_de %} am {{ hinweis.datum_de }}{% endif %}{% if hinweis.ziel_gruppe %} in {{ hinweis.ziel_gruppe }}{% endif %} verschoben.
+                            </div>
+                            <div class="zwischenzeile-folgezeile">
+                                Falls {{ hinweis.name }} weiterhin zur Gruppe erscheint melde dich bitte bei deinen JuRefs!
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+
                     <tr class="gruppen-zwischenzeile">
-                        <td colspan="{{ gesamt_spalten }}">Jugendleitende</td>
+                        <td colspan="{{ gesamt_spalten }}">
+                            <span class="zwischenzeile-hauptzeile">Jugendleitende</span>
+                        </td>
                     </tr>
 
                     {% for gruppenleiter in gruppenleiter %}

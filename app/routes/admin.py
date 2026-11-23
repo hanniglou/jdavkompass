@@ -21,11 +21,17 @@ from app.services.admin_service import (
     get_all_gruppenleiter,
     get_gruppenleiter,
     hole_aenderungs_log,
+    hole_einstellungen,
+    loesche_gruppenart,
     log_aenderung,
     save_gruppenleiter,
+    speichere_beitrags_rahmen,
+    speichere_einstellungen,
+    speichere_gruppenart,
     update_account_status,
 )
 from app.services.gruppe_service import baue_anwesenheits_excel
+from app.services.gruppen_service import loesche_gruppe, neue_gruppe_erstellen
 from app.services.mail_service import (
     SYSTEM_TEMPLATE_SCHLUESSEL,
     erstelle_mail_template,
@@ -39,6 +45,7 @@ from app.services.mail_service import (
     speichere_mail_konfiguration,
     speichere_mail_template,
 )
+from app.services.utils import jugendgruppen_preview
 
 
 admin_bp = Blueprint("admin", __name__)
@@ -128,6 +135,84 @@ def admin_juleis():
         active_tab="juleis",
         gruppenleiter=get_all_gruppenleiter(),
         accounts=get_all_accounts(),
+    )
+
+
+@admin_bp.route("/admin/gruppen", methods=["GET", "POST"])
+@login_required
+@require_role(4)
+def admin_gruppen():
+    if request.method == "POST":
+        action = request.form.get("action", "create")
+        if action == "delete":
+            gruppe_id_raw = request.form.get("gruppe_id", "").strip()
+            try:
+                gruppe_id = int(gruppe_id_raw)
+                loesche_gruppe(gruppe_id)
+                log_aenderung("Gruppe gelöscht", f"Gruppen-ID {gruppe_id}")
+                flash("Gruppe wurde gelöscht.", "success")
+            except (TypeError, ValueError):
+                flash("Ungültige Gruppen-ID.", "error")
+
+        elif action == "save_gruppenart":
+            try:
+                ga_id_raw = request.form.get("gruppenart_id", "").strip()
+                ga_id = int(ga_id_raw) if ga_id_raw else None
+                name = request.form.get("ga_name", "").strip()
+                dauer = int(request.form.get("ga_dauer", "0"))
+                schluessel = int(request.form.get("ga_schluessel", "0"))
+                geld = request.form.get("ga_betreuungsgeld", "").strip()
+                speichere_gruppenart(name, dauer, schluessel, geld, gruppenart_id=ga_id)
+                log_aenderung(
+                    "Gruppenart gespeichert",
+                    f"{name} ({dauer} Min, 1:{schluessel}, {geld} €/Monat)",
+                )
+                flash(f"Gruppenart „{name}“ wurde gespeichert.", "success")
+            except Exception as exc:
+                flash(f"Fehler bei Gruppenart: {exc}", "error")
+
+        elif action == "delete_gruppenart":
+            try:
+                ga_id = int(request.form.get("gruppenart_id", "").strip())
+                loesche_gruppenart(ga_id)
+                log_aenderung("Gruppenart gelöscht", f"Gruppenart-ID {ga_id}")
+                flash("Gruppenart wurde gelöscht.", "success")
+            except (TypeError, ValueError):
+                flash("Ungültige Gruppenart-ID.", "error")
+
+        elif action == "save_beitrags_rahmen":
+            speichere_beitrags_rahmen(
+                betreuungsgeld_gueltig_ab=request.form.get("anmeldung_betreuungsgeld_gueltig_ab", ""),
+                eintritt_gueltig_ab=request.form.get("anmeldung_eintritt_gueltig_ab", ""),
+                eintritt_unter_14=request.form.get("anmeldung_eintritt_unter_14", ""),
+                eintritt_ab_14=request.form.get("anmeldung_eintritt_ab_14", ""),
+                eintritt_hinweis=request.form.get("anmeldung_eintritt_hinweis", ""),
+            )
+            log_aenderung(
+                "Eintrittspreise & Gültigkeiten aktualisiert",
+                "Rahmendaten für /anmeldung bearbeitet",
+            )
+            flash("Eintrittspreise und Gültigkeitsdaten wurden gespeichert.", "success")
+
+        else:
+            name = request.form.get("name", "").strip()
+            wochentag = request.form.get("wochentag", "").strip()
+            startzeit = request.form.get("startzeit", "").strip()
+            endzeit = request.form.get("endzeit", "").strip()
+            if not name or not wochentag or not startzeit or not endzeit:
+                flash("Bitte Name, Wochentag, Startzeit und Endzeit angeben.", "error")
+            else:
+                neue_gruppe_erstellen(request.form)
+                log_aenderung("Neue Gruppe erstellt", f"{name} ({wochentag}, {startzeit}–{endzeit})")
+                flash(f"Gruppe „{name}“ wurde angelegt.", "success")
+
+        return redirect(url_for("admin.admin_gruppen"))
+
+    return render_template(
+        "admin/gruppenverwaltung.html",
+        active_tab="gruppen",
+        gruppen=jugendgruppen_preview(),
+        einstellungen=hole_einstellungen(),
     )
 
 
@@ -358,4 +443,29 @@ def admin_export():
         "admin/export.html",
         active_tab="export",
         gruppen=gruppen,
+    )
+
+
+@admin_bp.route("/admin/texte", methods=["GET", "POST"])
+@login_required
+@require_role(4)
+def admin_texte():
+    if request.method == "POST":
+        speichere_einstellungen(
+            {
+                "footer_text": request.form.get("footer_text", ""),
+                "footer_extern_text": request.form.get("footer_extern_text", ""),
+                "anmeldung_intro_text": request.form.get("anmeldung_intro_text", ""),
+                "anmeldung_beitraege_intro": request.form.get("anmeldung_beitraege_intro", ""),
+                "anmeldung_beitraege_details": request.form.get("anmeldung_beitraege_details", ""),
+            }
+        )
+        log_aenderung("Texte & Footer aktualisiert", "Footer und Anmeldungstexte bearbeitet")
+        flash("Texte und Footer wurden gespeichert.", "success")
+        return redirect(url_for("admin.admin_texte"))
+
+    return render_template(
+        "admin/texte.html",
+        active_tab="texte",
+        texte=hole_einstellungen(),
     )

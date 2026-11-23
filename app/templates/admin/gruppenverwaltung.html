@@ -1,0 +1,308 @@
+{% extends "base_intern.html" %}
+
+{% block title %}Gruppenverwaltung - JDAV Hildesheim{% endblock %}
+
+{% block content %}
+<section class="page-section">
+    <h1>Admin Panel – Gruppenverwaltung</h1>
+    {% include "admin/_nav.html" %}
+
+    <div class="form-card julei-form-card">
+        <h3>Neue Gruppe erstellen</h3>
+        <form method="POST" action="{{ url_for('admin.admin_gruppen') }}">
+            <input type="hidden" name="action" value="create">
+
+            <div class="form-section">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="neue-gruppe-name">Name *</label>
+                        <input id="neue-gruppe-name" type="text" name="name" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="neue-gruppe-gruppenart">Gruppenart</label>
+                        <input id="neue-gruppe-gruppenart" type="text" name="gruppenart" placeholder="z. B. Jugendgruppe, Bouldergruppe, Inklusionsgruppe">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="neue-gruppe-wochentag">Wochentag *</label>
+                        <select id="neue-gruppe-wochentag" name="wochentag" required>
+                            <option value="Montag">Montag</option>
+                            <option value="Dienstag">Dienstag</option>
+                            <option value="Mittwoch">Mittwoch</option>
+                            <option value="Donnerstag">Donnerstag</option>
+                            <option value="Freitag">Freitag</option>
+                            <option value="Samstag">Samstag</option>
+                            <option value="Sonntag">Sonntag</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="neue-gruppe-startzeit">Startzeit *</label>
+                        <input id="neue-gruppe-startzeit" type="time" name="startzeit" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="neue-gruppe-endzeit">Endzeit *</label>
+                        <input id="neue-gruppe-endzeit" type="time" name="endzeit" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="neue-gruppe-dauer">Dauer (Minuten, optional)</label>
+                        <input id="neue-gruppe-dauer" type="number" name="dauer" min="15" step="15" placeholder="z. B. 90">
+                    </div>
+
+                    <div class="form-group form-group--top-spaced">
+                        <label for="neue-gruppe-beschreibung">Beschreibung</label>
+                        <textarea id="neue-gruppe-beschreibung" name="beschreibung" rows="2" class="textarea-resizable"></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn-kompass btn-kompass--success">
+                    Neue Gruppe erstellen
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <div class="table-container">
+        <h3>Bestehende Gruppen</h3>
+        {% if gruppen %}
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Gruppenart</th>
+                    <th>Wochentag</th>
+                    <th>Zeit</th>
+                    <th>JuLeis</th>
+                    <th>Teilnehmende</th>
+                    <th>Aktion</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for g in gruppen %}
+                <tr>
+                    <td><strong>{{ g.name }}</strong></td>
+                    <td>{{ g.gruppenart or "—" }}</td>
+                    <td>{{ g.wochentag }}</td>
+                    <td>{{ g.startzeit[:5] if g.startzeit else "" }} – {{ g.endzeit[:5] if g.endzeit else "" }} Uhr</td>
+                    <td>{{ g.gruppenleiter | join(", ") if g.gruppenleiter else "—" }}</td>
+                    <td>{{ g.mitglieder | length }}</td>
+                    <td>
+                        <form method="POST"
+                              action="{{ url_for('admin.admin_gruppen') }}"
+                              class="inline-form"
+                              onsubmit="return confirm('Gruppe ' + {{ g.name|tojson }} + ' wirklich löschen?');">
+                            <input type="hidden" name="action" value="delete">
+                            <input type="hidden" name="gruppe_id" value="{{ g.id }}">
+                            <button type="submit" class="btn-kompass btn-kompass--danger-light">
+                                Löschen
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="text-muted">Noch keine Gruppen angelegt.</p>
+        {% endif %}
+    </div>
+
+    <div class="form-card admin-panel-card">
+        <h3>Gruppenarten und Betreuungsgelder</h3>
+        <p class="admin-lead">
+            Definierte Gruppenarten stehen beim Bearbeiten von Gruppen als Auswahl zur Verfügung und werden auf <code>/anmeldung</code> als monatliches Betreuungsgeld angezeigt.
+        </p>
+
+        <form method="POST" action="{{ url_for('admin.admin_gruppen') }}">
+            <input type="hidden" name="action" value="save_gruppenart">
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="ga-name">Gruppenart *</label>
+                    <input id="ga-name" type="text" name="ga_name" placeholder="z. B. Jugendgruppe" required>
+                </div>
+                <div class="form-group">
+                    <label for="ga-dauer">Dauer (Minuten) *</label>
+                    <input id="ga-dauer" type="number" name="ga_dauer" min="15" step="5" placeholder="90" required>
+                </div>
+                <div class="form-group">
+                    <label for="ga-schluessel">Betreuungsschlüssel (1:x) *</label>
+                    <input id="ga-schluessel" type="number" name="ga_schluessel" min="1" step="1" placeholder="8" required>
+                </div>
+                <div class="form-group">
+                    <label for="ga-geld">Betreuungsgeld (€/Monat) *</label>
+                    <input id="ga-geld" type="text" name="ga_betreuungsgeld" placeholder="19" required>
+                </div>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn-kompass btn-kompass--success">
+                    Gruppenart hinzufügen
+                </button>
+            </div>
+        </form>
+
+        {% if gruppenarten %}
+        <div class="table-container" style="margin-top: 1.25rem;">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Gruppenart</th>
+                        <th>Dauer (Min)</th>
+                        <th>Betreuungsschlüssel</th>
+                        <th>Betreuungsgeld / Monat</th>
+                        <th>Aktionen</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ga in gruppenarten %}
+                    <tr>
+                        <td>
+                            <form id="ga-form-{{ ga.id }}" method="POST" action="{{ url_for('admin.admin_gruppen') }}" data-dirty-form>
+                                <input type="hidden" name="action" value="save_gruppenart">
+                                <input type="hidden" name="gruppenart_id" value="{{ ga.id }}">
+                            </form>
+                            <input type="text" name="ga_name" value="{{ ga.name }}" form="ga-form-{{ ga.id }}" required>
+                        </td>
+                        <td>
+                            <input type="number" name="ga_dauer" value="{{ ga.dauer_minuten }}" min="15" step="5" form="ga-form-{{ ga.id }}" required>
+                        </td>
+                        <td>
+                            <div class="inline-form">
+                                <span>1 :</span>
+                                <input type="number" name="ga_schluessel" value="{{ ga.betreuungsschluessel }}" min="1" step="1" style="max-width: 75px;" form="ga-form-{{ ga.id }}" required>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="inline-form">
+                                <input type="text" name="ga_betreuungsgeld" value="{{ ga.betreuungsgeld_euro }}" style="max-width: 85px;" form="ga-form-{{ ga.id }}" required>
+                                <span>€</span>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="inline-form">
+                                <button type="submit"
+                                        form="ga-form-{{ ga.id }}"
+                                        class="btn-kompass btn-kompass--success is-disabled"
+                                        data-dirty-btn
+                                        disabled>
+                                    Speichern
+                                </button>
+                                <form method="POST"
+                                    action="{{ url_for('admin.admin_gruppen') }}"
+                                    class="inline-form"
+                                    onsubmit="return confirm('Gruppenart ' + {{ ga.name|tojson }} + ' wirklich löschen?');">
+                                    <input type="hidden" name="action" value="delete_gruppenart">
+                                    <input type="hidden" name="gruppenart_id" value="{{ ga.id }}">
+                                    <button type="submit" class="btn-kompass btn-kompass--danger-light">Löschen</button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="form-card admin-panel-card">
+        <h3>Eintrittspreise und Gültigkeitsdaten (/anmeldung)</h3>
+        <form method="POST" action="{{ url_for('admin.admin_gruppen') }}" data-dirty-form>
+            <input type="hidden" name="action" value="save_beitrags_rahmen">
+
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="bg-gueltig">Betreuungsgeld gültig ab</label>
+                    <input id="bg-gueltig" type="text" name="anmeldung_betreuungsgeld_gueltig_ab" value="{{ einstellungen.anmeldung_betreuungsgeld_gueltig_ab }}" placeholder="01.03.2026" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="ein-gueltig">Eintrittspreis gültig ab</label>
+                    <input id="ein-gueltig" type="text" name="anmeldung_eintritt_gueltig_ab" value="{{ einstellungen.anmeldung_eintritt_gueltig_ab }}" placeholder="01.02.2024" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="ein-u14">Eintritt unter 14 Jahren (€)</label>
+                    <input id="ein-u14" type="text" name="anmeldung_eintritt_unter_14" value="{{ einstellungen.anmeldung_eintritt_unter_14 }}" placeholder="13,50" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="ein-ab14">Eintritt ab 14 Jahren (€)</label>
+                    <input id="ein-ab14" type="text" name="anmeldung_eintritt_ab_14" value="{{ einstellungen.anmeldung_eintritt_ab_14 }}" placeholder="25" required>
+                </div>
+            </div>
+
+            <div class="form-group form-group--top-spaced">
+                <label for="ein-hinweis">Zusatzhinweis Eintrittspreis (optional)</label>
+                <input id="ein-hinweis" type="text" name="anmeldung_eintritt_hinweis" value="{{ einstellungen.anmeldung_eintritt_hinweis }}">
+            </div>
+
+            <button type="submit"
+                    class="btn-kompass btn-kompass--success is-disabled"
+                    data-dirty-btn
+                    disabled>
+                Eintrittspreise &amp; Daten speichern
+            </button>
+        </form>
+    </div>
+</section>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const SCROLL_KEY = "kompass_admin_gruppen_scroll";
+
+    // Scroll-Position nach Formular-Submit wiederherstellen
+    try {
+        const savedScroll = sessionStorage.getItem(SCROLL_KEY);
+        if (savedScroll !== null) {
+            const y = parseInt(savedScroll, 10);
+            if (!Number.isNaN(y) && y > 0) {
+                requestAnimationFrame(() => window.scrollTo(0, y));
+            }
+            sessionStorage.removeItem(SCROLL_KEY);
+        }
+    } catch (_) {}
+
+    // Vor jedem Formular-Submit aktuelle Scroll-Position sichern
+    document.querySelectorAll("form").forEach((form) => {
+        form.addEventListener("submit", () => {
+            try {
+                sessionStorage.setItem(SCROLL_KEY, String(window.scrollY || 0));
+            } catch (_) {}
+        });
+    });
+
+    // Speichern-Buttons erst aktivieren/grün schalten, wenn sich Werte geändert haben
+    document.querySelectorAll("form[data-dirty-form]").forEach((form) => {
+        const btn = form.id
+            ? document.querySelector(`[data-dirty-btn][form="${form.id}"]`) || form.querySelector("[data-dirty-btn]")
+            : form.querySelector("[data-dirty-btn]");
+        if (!btn) return;
+
+        const fields = form.id
+            ? Array.from(document.querySelectorAll(`input[form="${form.id}"], select[form="${form.id}"], textarea[form="${form.id}"]`))
+            : Array.from(form.querySelectorAll("input, select, textarea")).filter((el) => el.type !== "hidden");
+
+        const initialValues = new Map(fields.map((el) => [el, el.value]));
+
+        function updateButtonState() {
+            const hasChanges = fields.some((el) => el.value !== initialValues.get(el));
+            btn.disabled = !hasChanges;
+            btn.classList.toggle("is-disabled", !hasChanges);
+        }
+
+        fields.forEach((el) => {
+            el.addEventListener("input", updateButtonState);
+            el.addEventListener("change", updateButtonState);
+        });
+
+        updateButtonState();
+    });
+});
+</script>
+
+{% endblock %}

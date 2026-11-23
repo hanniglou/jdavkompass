@@ -52,22 +52,30 @@
     <div class="cards">
         {% if heutige_gruppen %}
             {% for gruppe in heutige_gruppen %}
+            {% set leiter_liste = gruppe.gruppenleiter_vornamen if gruppe.gruppenleiter_vornamen is defined else gruppe.gruppenleiter %}
+            {% set mitglieder_liste = gruppe.mitglieder_vornamen if gruppe.mitglieder_vornamen is defined else gruppe.mitglieder %}
             <a class="card" href="{{ url_for('gruppe.gruppe', gruppe_id=gruppe.id) }}">
                 <h2 class="gruppe-titel">{{ gruppe.name }}</h2>
+                {% if gruppe.startzeit or gruppe.endzeit %}
+                <h3 class="gruppe-zeit-subheading">
+                    {{ gruppe.startzeit[:5] if gruppe.startzeit else '' }}{% if gruppe.startzeit and gruppe.endzeit %}-{% endif %}{{ gruppe.endzeit[:5] if gruppe.endzeit else '' }} Uhr
+                </h3>
+                {% endif %}
+
                 <div class="gruppe-info">
                     <div class="info-item">
-                        <strong>Uhrzeit:</strong> {{ gruppe.startzeit }} - {{ gruppe.endzeit }}
+                        <strong>Gruppenart:</strong> {{ gruppe.gruppenart or "—" }}
                     </div>
-                    {% if gruppe.gruppenleiter %}
+
                     <div class="info-item">
-                        <strong>Gruppenleiter:</strong> {{ gruppe.gruppenleiter | join(', ') }}
+                        <strong>Jugendleitende</strong>
+                        {{ leiter_liste | join(', ') if leiter_liste else "—" }}
                     </div>
-                    {% endif %}
-                    {% if gruppe.mitglieder %}
+
                     <div class="info-item">
-                        <strong>Teilnehmende:</strong> {{ gruppe.mitglieder | join(', ') }}
+                        <strong>Teilnehmende</strong>
+                        {{ mitglieder_liste | join(', ') if mitglieder_liste else "—" }}
                     </div>
-                    {% endif %}
                 </div>
             </a>
             {% endfor %}

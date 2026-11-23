@@ -252,6 +252,22 @@ def init_db():
         CREATE INDEX IF NOT EXISTS idx_mitglied_historie_mitglied_id
         ON mitglied_historie(mitglied_id);
         """,
+        """
+        CREATE TABLE IF NOT EXISTS app_einstellungen (
+            schluessel TEXT PRIMARY KEY,
+            wert TEXT NOT NULL
+        );
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS gruppenarten (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            dauer_minuten INTEGER NOT NULL,
+            betreuungsschluessel INTEGER NOT NULL DEFAULT 8,
+            betreuungsgeld_euro TEXT NOT NULL,
+            sortierung INTEGER NOT NULL DEFAULT 0
+        );
+        """,
     ]
 
     statements_accounts = [
@@ -305,6 +321,15 @@ def init_db():
         if not _column_exists(cursor, "kuendigungen", "bestaetigung_gesendet"):
             cursor.execute("ALTER TABLE kuendigungen ADD COLUMN bestaetigung_gesendet BOOLEAN NOT NULL DEFAULT 0;")
 
+        # Nachgestellte/führende Leerzeichen beim Vornamen in 'mitglieder' bereinigen
+        cursor.execute(
+            """
+            UPDATE mitglieder
+            SET vorname = TRIM(vorname)
+            WHERE vorname IS NOT NULL AND vorname != TRIM(vorname);
+            """
+        )
+        
         cursor.execute(
             """
             INSERT OR IGNORE INTO mail_einstellungen (
@@ -339,6 +364,97 @@ def init_db():
                 ) VALUES (?, ?, ?, ?, ?);
                 """,
                 tpl,
+            )
+
+        standard_einstellungen = [
+            (
+                "footer_text",
+                "Notfallkontakt: Lou Hannig\n"
+                "lou.hannig@jdav-hildesheim.de\n"
+                "© 2026 JDAV Hildesheim. Alle Rechte vorbehalten.",
+            ),
+            (
+                "footer_extern_text",
+                "© 2026 JDAV Hildesheim. Alle Rechte vorbehalten.",
+            ),
+            (
+                "anmeldung_intro_text",
+                "Bitte gebe hier alle Daten für das anzumeldene Mitglied ein. "
+                "Sollten sich in Zukunft Daten ändern, bitte teile dies den Gruppenleitenden mit. "
+                "Für eine Teilname an einer Jugendgruppe ist eine Mitgliedschaft im DAV erforderlich.",
+            ),
+            (
+                "anmeldung_beitraege_intro",
+                "Neben der Mitgliedschaft im DAV Sektion Hildesheim erfordert die Teilnahme an einer "
+                "Jugendgruppe eine monatliche Teilnahmegebühr, welche sich aus einem Betreuungsgeld und "
+                "dem Jugendgruppeneintrittsgeld zusammen setzt und quartalsweise eingezogen wird. "
+                "Es besteht die Möglichkeit bei den ersten zwei Termine zu schnuppern, ohne das eine "
+                "Mitgliedschaft oder ein Beitrag fällig ist. Die Mitgliedschaft einer Jugendgruppe ist "
+                "monatlich kündbar, dazu melden Sie sich bei jugend@jdav-hildesheim.de per Email.",
+            ),
+            (
+                "anmeldung_betreuungsgeld_titel",
+                "Betreuungsgeld: (gültig ab dem 1.3.2026)",
+            ),
+            (
+                "anmeldung_betreuungsgeld_zeilen",
+                "Jugendgruppe 1,5h: 19€\n"
+                "Boudergruppe 1h: 16€\n"
+                "Mini Gruppe 1h: 19€\n"
+                "Inklusive Gruppe 14 tägig: 14€",
+            ),
+            (
+                "anmeldung_eintritt_titel",
+                "Jugendgruppeneintrittspreis: (gültig ab dem 1.02.2024)",
+            ),
+            (
+                "anmeldung_eintritt_zeilen",
+                "Kinder bis 14 Jahren: 13,50€\n"
+                "Jugendliche ab 14 Jahren: 25€\n"
+                "Für die Inklusive Gruppe wird kein Eintritt fällig",
+            ),
+        ]
+
+        beitrags_einstellungen = [
+            ("anmeldung_betreuungsgeld_gueltig_ab", "01.03.2026"),
+            ("anmeldung_eintritt_gueltig_ab", "01.02.2024"),
+            ("anmeldung_eintritt_unter_14", "13,50"),
+            ("anmeldung_eintritt_ab_14", "25"),
+            ("anmeldung_eintritt_hinweis", "Für die Inklusive Gruppe wird kein Eintritt fällig"),
+        ]
+        for schluessel, wert in beitrags_einstellungen:
+            cursor.execute(
+                """
+                INSERT OR IGNORE INTO app_einstellungen (schluessel, wert)
+                VALUES (?, ?);
+                """,
+                (schluessel, wert),
+            )
+
+        vorhandene_arten = cursor.execute("SELECT COUNT(*) FROM gruppenarten").fetchone()[0]
+        if vorhandene_arten == 0:
+            standard_gruppenarten = [
+                ("Jugendgruppe", 90, 8, "19", 1),
+                ("Bouldergruppe", 60, 8, "16", 2),
+                ("Minis", 60, 6, "19", 3),
+                ("Inklusionsgruppe", 90, 4, "14", 4),
+            ]
+            cursor.executemany(
+                """
+                INSERT INTO gruppenarten (
+                    name, dauer_minuten, betreuungsschluessel, betreuungsgeld_euro, sortierung
+                ) VALUES (?, ?, ?, ?, ?);
+                """,
+                standard_gruppenarten,
+            )
+
+        for schluessel, wert in standard_einstellungen:
+            cursor.execute(
+                """
+                INSERT OR IGNORE INTO app_einstellungen (schluessel, wert)
+                VALUES (?, ?);
+                """,
+                (schluessel, wert),
             )
 
     with get_accounts() as conn:

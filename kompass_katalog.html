@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JDAV Kompass – Ausführlicher HTML &amp; CSS Katalog</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="kompass_katalog.css">
+</head>
+<body>
+    <header class="kat-header">
+        <div>
+            <h1>JDAV Kompass – Komponenten-Katalog</h1>
+            <p>Ausführliche Baustein-Referenz (K-01 bis K-14) für neue Views, Warteliste &amp; Umbauten</p>
+        </div>
+        <span class="kat-tag">ID-Referenz: K-01 – K-14</span>
+    </header>
+
+    <main class="kat-main">
+        <!-- K-01: Seitenkopf & Zurück-Link -->
+        <section class="kat-block" id="k-01">
+            <div class="kat-meta">
+                <span class="kat-id">K-01</span>
+                <h2>Seitenkopf, Zurück-Link &amp; Lead-Text</h2>
+            </div>
+            <h1 class="ui-h1">Warteliste Jugendgruppen</h1>
+            <div class="back-link-row">
+                <a href="#k-01" class="back-link" onclick="event.preventDefault()">&larr; Zurück zur Übersicht</a>
+            </div>
+            <p class="ui-lead">Verwaltung der Wartelisteneinträge und Übernahme in passende Gruppen.</p>
+        </section>
+
+        <!-- K-02: Typografie-Hierarchie (H1 - H4, Fließtext, Meta) -->
+        <section class="kat-block" id="k-02">
+            <div class="kat-meta">
+                <span class="kat-id">K-02</span>
+                <h2>Typografie-Hierarchie (H1–H4, Fließtext &amp; Meta)</h2>
+            </div>
+            <h1 class="ui-h1 ui-h1--compact">H1 · Seitentitel (900)</h1>
+            <h2 class="ui-h2">H2 · Bereichsüberschrift (700)</h2>
+            <h3 class="ui-h3">H3 · Abschnittsüberschrift (600)</h3>
+            <h4 class="ui-h4">H4 · Untertitel / Dialogtitel (600)</h4>
+            <p class="ui-body">Fließtext (400): Regulärer Text für Hinweise, Beschreibungen und Erklärungen im Kompass.</p>
+            <p class="ui-muted">Sekundärtext / Meta (400): Eingegangen am 12.11.2026 · Gruppe Donnerstag</p>
+        </section>
+
+        <!-- K-03: S2 Solid-Buttons -->
+        <section class="kat-block" id="k-03">
+            <div class="kat-meta">
+                <span class="kat-id">K-03</span>
+                <h2>S2 Solid-Buttons (Aktionen &amp; Speichern)</h2>
+            </div>
+            <div class="kat-row">
+                <button type="button" class="btn-kompass btn-kompass--success">Speichern / Übernehmen</button>
+                <button type="button" class="btn-kompass btn-kompass--warning">Bearbeiten / Vormerken</button>
+                <button type="button" class="btn-kompass btn-kompass--danger">Löschen / Ablehnen</button>
+                <button type="button" class="btn-kompass btn-kompass--secondary">Sekundäraktion</button>
+                <button type="button" class="btn-kompass btn-kompass--success" disabled>Deaktiviert (ohne Änderung)</button>
+            </div>
+        </section>
+
+        <!-- K-04: S2 Light-Buttons & Tab-Zähler ohne Bubble -->
+        <section class="kat-block" id="k-04">
+            <div class="kat-meta">
+                <span class="kat-id">K-04</span>
+                <h2>S2 Light-Buttons &amp; Tab-Zähler (ohne Bubble)</h2>
+            </div>
+            <div class="kat-row">
+                <a href="#k-04" class="btn-kompass btn-kompass--success-light" onclick="event.preventDefault()">
+                    <span>Mitglieder freigeben</span>
+                    <span class="btn-kompass-badge">3</span>
+                </a>
+                <a href="#k-04" class="btn-kompass btn-kompass--warning-light" onclick="event.preventDefault()">
+                    <span>Warteliste</span>
+                    <span class="btn-kompass-badge">9</span>
+                </a>
+                <a href="#k-04" class="btn-kompass btn-kompass--danger-light" onclick="event.preventDefault()">
+                    <span>Kündigungen verwalten</span>
+                    <span class="btn-kompass-badge">2</span>
+                </a>
+                <button type="button" class="btn-kompass btn-kompass--secondary-light">Abbrechen</button>
+            </div>
+        </section>
+
+        <!-- K-05: Filter-Leiste & Pills -->
+        <section class="kat-block" id="k-05">
+            <div class="kat-meta">
+                <span class="kat-id">K-05</span>
+                <h2>Filter-Leiste &amp; Pills</h2>
+            </div>
+            <div class="zeitraum-bar">
+                <span class="zeitraum-label">Gruppe:</span>
+                <a href="#k-05" class="zeitraum-pill is-active" onclick="event.preventDefault()">Alle (9)</a>
+                <a href="#k-05" class="zeitraum-pill" onclick="event.preventDefault()">Jugendgruppe Do</a>
+                <a href="#k-05" class="zeitraum-pill" onclick="event.preventDefault()">Bouldergruppe Di</a>
+                <a href="#k-05" class="zeitraum-pill" onclick="event.preventDefault()">Minis Mi</a>
+            </div>
+        </section>
+
+        <!-- K-06: Such- & Filter-Toolbar -->
+        <section class="kat-block" id="k-06">
+            <div class="kat-meta">
+                <span class="kat-id">K-06</span>
+                <h2>Such- &amp; Filter-Toolbar</h2>
+            </div>
+            <div class="kat-toolbar">
+                <select aria-label="Filterspalte" class="kat-select-sm">
+                    <option value="all">Alle Spalten</option>
+                    <option value="name">Name</option>
+                    <option value="gruppe">Wunschgruppe</option>
+                </select>
+                <input type="search" class="kat-search-input" placeholder="Name, Wunschgruppe, Kontakt suchen...">
+                <button type="button" class="btn-kompass btn-kompass--secondary-light">Zurücksetzen</button>
+            </div>
+        </section>
+
+        <!-- K-07: Info- & Gruppenkarten -->
+        <section class="kat-block" id="k-07">
+            <div class="kat-meta">
+                <span class="kat-id">K-07</span>
+                <h2>Info- &amp; Gruppenkarten</h2>
+            </div>
+            <div class="kat-grid-2">
+                <a href="#k-07" class="ui-card ui-card--link" onclick="event.preventDefault()">
+                    <h3>Jugendgruppe Donnerstag</h3>
+                    <p class="ui-muted">Donnerstag · 16:30 – 18:00 Uhr</p>
+                    <p class="ui-body"><strong>JuLeis:</strong> Lena K., Jonas M.</p>
+                    <p class="ui-body"><strong>Warteliste:</strong> 4 Kinder</p>
+                </a>
+                <div class="ui-card">
+                    <h3>Schneller Überblick</h3>
+                    <p class="ui-body">Aktive Warteliste: <strong>9 Kinder</strong></p>
+                    <p class="ui-body">Ältester Eintrag seit: <strong>14.08.2026</strong></p>
+                </div>
+            </div>
+        </section>
+
+        <!-- K-08: Hinweis-, Warn- & Status-Boxen -->
+        <section class="kat-block" id="k-08">
+            <div class="kat-meta">
+                <span class="kat-id">K-08</span>
+                <h2>Hinweis-, Warn- &amp; Status-Boxen</h2>
+            </div>
+            <div class="kat-stack-sm">
+                <div class="ui-callout ui-callout--info">
+                    <p class="ui-callout-title">Info-Hinweis</p>
+                    <p class="ui-body">Neue Einträge erscheinen automatisch oben oder nach Datum sortiert.</p>
+                </div>
+                <div class="ui-callout ui-callout--warn">
+                    <p class="ui-callout-title">Wichtiger Hinweis (DAV-Mitgliedschaft)</p>
+                    <p class="ui-body">Für die Teilnahme an einer Jugendgruppe ist eine Mitgliedschaft im DAV erforderlich.</p>
+                </div>
+                <div class="ui-callout ui-callout--danger">
+                    <p class="ui-callout-title">Gefahrenbereich / Hinweis</p>
+                    <p class="ui-body">Das endgültige Löschen eines Eintrags kann nicht rückgängig gemacht werden.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- K-09: Formularfelder (Text, Select, Checkbox, Radio, Datum) -->
+        <section class="kat-block" id="k-09">
+            <div class="kat-meta">
+                <span class="kat-id">K-09</span>
+                <h2>Formularfelder &amp; Datum-Picker-Feld</h2>
+            </div>
+            <div class="kat-form-grid">
+                <div class="form-group">
+                    <label for="f-kind">Vor- &amp; Nachname</label>
+                    <input id="f-kind" type="text" placeholder="Mia Musterkind">
+                </div>
+                <div class="form-group">
+                    <label for="f-gruppe">Wunschgruppe</label>
+                    <select id="f-gruppe">
+                        <option>Jugendgruppe Do (16:30)</option>
+                        <option>Bouldergruppe Di (17:00)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="f-datum">Datum (TT.MM.JJJJ)</label>
+                    <div class="kompass-date-field">
+                        <input id="f-datum" type="text" class="kompass-date-input" value="22.11.2026" readonly>
+                        <span class="kompass-date-icon" aria-hidden="true">📅</span>
+                    </div>
+                </div>
+            </div>
+            <div class="kat-row kat-row--spaced">
+                <label class="kat-inline-check">
+                    <input type="checkbox" checked>
+                    <span>DAV-Mitgliedschaft vorhanden / beantragt</span>
+                </label>
+                <label class="kat-inline-check">
+                    <input type="radio" name="kat-prio" checked>
+                    <span>Regulär</span>
+                </label>
+                <label class="kat-inline-check">
+                    <input type="radio" name="kat-prio">
+                    <span>Geschwisterkind</span>
+                </label>
+            </div>
+        </section>
+
+        <!-- K-10: Standard-Tabelle mit Aktionsbuttons -->
+        <section class="kat-block" id="k-10">
+            <div class="kat-meta">
+                <span class="kat-id">K-10</span>
+                <h2>Standard-Tabelle &amp; Aktionen</h2>
+            </div>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Wunschgruppe</th>
+                        <th>Auf Warteliste seit</th>
+                        <th>Aktion</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Musterkind, Mia</td>
+                        <td>Jugendgruppe Do</td>
+                        <td>12.11.2026</td>
+                        <td class="kat-table-actions">
+                            <button type="button" class="btn-kompass btn-kompass--success">Übernehmen</button>
+                            <button type="button" class="btn-kompass btn-kompass--danger-light">Entfernen</button>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Bergmann, Finn</td>
+                        <td>Bouldergruppe Di</td>
+                        <td>03.11.2026</td>
+                        <td class="kat-table-actions">
+                            <button type="button" class="btn-kompass btn-kompass--success">Übernehmen</button>
+                            <button type="button" class="btn-kompass btn-kompass--danger-light">Entfernen</button>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- K-11: Tabellen-Zwischenzeile & hervorgehobene Zeile -->
+        <section class="kat-block" id="k-11">
+            <div class="kat-meta">
+                <span class="kat-id">K-11</span>
+                <h2>Tabellen-Zwischenzeile &amp; Markierungszeile</h2>
+            </div>
+            <table class="table">
+                <tbody>
+                    <tr class="gruppen-zwischenzeile">
+                        <td colspan="3">Warteliste – Jugendgruppe Donnerstag</td>
+                    </tr>
+                    <tr>
+                        <td>Musterkind, Mia</td>
+                        <td>12.11.2026</td>
+                        <td>Regulär</td>
+                    </tr>
+                    <tr class="kat-row-highlight">
+                        <td>Bergmann, Finn</td>
+                        <td>03.11.2026</td>
+                        <td>Geschwisterkind (vorgemerkt)</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- K-12: Aufklappbarer Bereich (<details>) -->
+        <section class="kat-block" id="k-12">
+            <div class="kat-meta">
+                <span class="kat-id">K-12</span>
+                <h2>Aufklappbarer Bereich (Details)</h2>
+            </div>
+            <details class="kat-details">
+                <summary class="kat-details-summary">
+                    <span>Bereits übernommene / erledigte Einträge (14)</span>
+                    <span class="kat-chevron" aria-hidden="true">▾</span>
+                </summary>
+                <p class="ui-muted kat-details-body">Standardmäßig eingeklappt für ruhigere Hauptansichten.</p>
+            </details>
+        </section>
+
+        <!-- K-13: Flash-Meldungen (Erfolg & Fehler) -->
+        <section class="kat-block" id="k-13">
+            <div class="kat-meta">
+                <span class="kat-id">K-13</span>
+                <h2>Flash-Meldungen (Erfolg &amp; Fehler)</h2>
+            </div>
+            <div class="kat-stack-sm">
+                <div class="flash">Eintrag wurde auf die Warteliste gesetzt.</div>
+                <div class="flash flash-error">Bitte Pflichtfelder ausfüllen.</div>
+            </div>
+        </section>
+
+        <!-- K-14: Bestätigungs-Modal -->
+        <section class="kat-block" id="k-14">
+            <div class="kat-meta">
+                <span class="kat-id">K-14</span>
+                <h2>Bestätigungs-Modal</h2>
+            </div>
+            <div class="kompass-modal-dialog">
+                <h4 class="kompass-modal-title">Kind in Gruppe übernehmen?</h4>
+                <p class="kompass-modal-text">Soll Mia Musterkind von der Warteliste in die Jugendgruppe Donnerstag übernommen werden?</p>
+                <div class="kompass-modal-actions">
+                    <button type="button" class="btn-kompass btn-kompass--secondary-light">Abbrechen</button>
+                    <button type="button" class="btn-kompass btn-kompass--success">Übernehmen</button>
+                </div>
+            </div>
+        </section>
+    </main>
+</body>
+</html>

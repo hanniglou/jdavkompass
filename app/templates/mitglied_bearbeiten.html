@@ -5,9 +5,14 @@
 <section class="page-section">
 
     <h1>Detailansicht Mitglied</h1>
+    {% set von_gruppe = (request.args.get('from') == 'gruppe') or ('/gruppen/' in (request.referrer or '')) %}
+    {% set ziel_gruppen_name = (request.args.get('gruppe_name') or '').strip() %}
+    {% if not ziel_gruppen_name and mitglied.gruppen and mitglied.gruppen|length == 1 %}
+        {% set ziel_gruppen_name = mitglied.gruppen[0].name %}
+    {% endif %}
     <div class="back-link-row">
         <a href="{{ url_for('mitglieder.mitglieder') }}" class="back-link" onclick="event.preventDefault(); window.KompassNav.goBack(this.href);">
-            &larr; Zurück zur Mitgliederübersicht
+            &larr; {% if von_gruppe %}{% if ziel_gruppen_name %}Zurück zur Gruppe {{ ziel_gruppen_name }}{% else %}Zurück zur Gruppenansicht{% endif %}{% else %}Zurück zur Mitgliederübersicht{% endif %}
         </a>
     </div>
 

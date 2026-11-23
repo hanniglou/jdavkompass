@@ -64,7 +64,7 @@
                     <td>{{ mitglied.nachname }}</td>
                     <td>
                         {% for gruppe in mitglied.gruppen %}
-                            {{ gruppe.name }}{% if not loop.last %}, {% endif %}
+                            <a href="{{ url_for('gruppe.gruppe', gruppe_id=gruppe.id, from='mitglieder') }}" class="mitglied-link">{{ gruppe.name }}</a>{% if not loop.last %}, {% endif %}
                         {% endfor %}
                     </td>
                     <td>{{ mitglied.geburtsdatum[8:10] }}.{{ mitglied.geburtsdatum[5:7] }}.{{ mitglied.geburtsdatum[0:4] }}</td>
@@ -150,7 +150,7 @@
                     <td>{{ mitglied.nachname }}</td>
                     <td>
                         {% for gruppe in mitglied.gruppen %}
-                            {{ gruppe.name }}{% if not loop.last %}, {% endif %}
+                            <a href="{{ url_for('gruppe.gruppe', gruppe_id=gruppe.id, from='mitglieder') }}" class="mitglied-link">{{ gruppe.name }}</a>{% if not loop.last %}, {% endif %}
                         {% endfor %}
                     </td>
                     <td>{{ mitglied.geburtsdatum[8:10] }}.{{ mitglied.geburtsdatum[5:7] }}.{{ mitglied.geburtsdatum[0:4] }}</td>

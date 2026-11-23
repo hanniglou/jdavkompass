@@ -275,3 +275,178 @@ def get_all_gruppenleiter():
         ).fetchall()
 
         return gruppenleiter
+
+DEFAULT_EINSTELLUNGEN = {
+    "footer_text": (
+        "Notfallkontakt: Lou Hannig\n"
+        "lou.hannig@jdav-hildesheim.de\n"
+        "© 2026 JDAV Hildesheim. Alle Rechte vorbehalten."
+    ),
+    "footer_extern_text": "© 2026 JDAV Hildesheim. Alle Rechte vorbehalten.",
+    "anmeldung_intro_text": (
+        "Bitte gebe hier alle Daten für das anzumeldene Mitglied ein. "
+        "Sollten sich in Zukunft Daten ändern, bitte teile dies den Gruppenleitenden mit. "
+        "Für eine Teilname an einer Jugendgruppe ist eine Mitgliedschaft im DAV erforderlich."
+    ),
+    "anmeldung_beitraege_intro": (
+        "Neben der Mitgliedschaft im DAV Sektion Hildesheim erfordert die Teilnahme an einer "
+        "Jugendgruppe eine monatliche Teilnahmegebühr, welche sich aus einem Betreuungsgeld und "
+        "dem Jugendgruppeneintrittsgeld zusammen setzt und quartalsweise eingezogen wird. "
+        "Es besteht die Möglichkeit bei den ersten zwei Termine zu schnuppern, ohne das eine "
+        "Mitgliedschaft oder ein Beitrag fällig ist. Die Mitgliedschaft einer Jugendgruppe ist "
+        "monatlich kündbar, dazu melden Sie sich bei jugend@jdav-hildesheim.de per Email."
+    ),
+    "anmeldung_beitraege_details": (
+        "Betreuungsgeld: (gültig ab dem 1.3.2026)\n"
+        "Jugendgruppe 1,5h: 19€\n"
+        "Boudergruppe 1h: 16€\n"
+        "Mini Gruppe 1h: 19€\n"
+        "Inklusive Gruppe 14 tägig: 14€\n\n"
+        "Jugendgruppeneintrittspreis: (gültig ab dem 1.02.2024)\n"
+        "Kinder bis 14 Jahren: 13,50€\n"
+        "Jugendliche ab 14 Jahren: 25€\n"
+        "Für die Inklusive Gruppe wird kein Eintritt fällig"
+    ),
+    "anmeldung_betreuungsgeld_titel": "Betreuungsgeld: (gültig ab dem 1.3.2026)",
+        "anmeldung_betreuungsgeld_zeilen": (
+            "Jugendgruppe 1,5h: 19€\n"
+            "Boudergruppe 1h: 16€\n"
+            "Mini Gruppe 1h: 19€\n"
+            "Inklusive Gruppe 14 tägig: 14€"
+        ),
+        "anmeldung_eintritt_titel": "Jugendgruppeneintrittspreis: (gültig ab dem 1.02.2024)",
+        "anmeldung_eintritt_zeilen": (
+            "Kinder bis 14 Jahren: 13,50€\n"
+            "Jugendliche ab 14 Jahren: 25€\n"
+            "Für die Inklusive Gruppe wird kein Eintritt fällig"
+        ),
+    "anmeldung_betreuungsgeld_gueltig_ab": "01.03.2026",
+    "anmeldung_eintritt_gueltig_ab": "01.02.2024",
+    "anmeldung_eintritt_unter_14": "13,50",
+    "anmeldung_eintritt_ab_14": "25",
+    "anmeldung_eintritt_hinweis": "Für die Inklusive Gruppe wird kein Eintritt fällig",
+}
+
+
+def hole_einstellungen() -> dict[str, str]:
+    daten = dict(DEFAULT_EINSTELLUNGEN)
+    try:
+        with get_kompass() as conn:
+            rows = conn.execute(
+                "SELECT schluessel, wert FROM app_einstellungen"
+            ).fetchall()
+            for row in rows:
+                if row["schluessel"] in daten and row["wert"] is not None:
+                    daten[row["schluessel"]] = row["wert"]
+    except Exception:
+        pass
+    return daten
+
+
+def speichere_einstellungen(werte: dict[str, str]) -> None:
+    with get_kompass() as conn:
+        for schluessel, default_wert in DEFAULT_EINSTELLUNGEN.items():
+            if schluessel not in werte:
+                continue
+            bereinigt = (werte[schluessel] or "").replace("\r\n", "\n").strip() or default_wert
+            conn.execute(
+                """
+                INSERT INTO app_einstellungen (schluessel, wert)
+                VALUES (?, ?)
+                ON CONFLICT(schluessel) DO UPDATE SET wert = excluded.wert
+                """,
+                (schluessel, bereinigt),
+            )
+
+
+BEITRAG_SCHLUESSEL = (
+    "anmeldung_betreuungsgeld_titel",
+    "anmeldung_betreuungsgeld_zeilen",
+    "anmeldung_eintritt_titel",
+    "anmeldung_eintritt_zeilen",
+)
+
+
+def speichere_gruppenarten_und_beitraege(werte: dict[str, str]) -> None:
+    gefiltert = {k: v for k, v in werte.items() if k in BEITRAG_SCHLUESSEL}
+    speichere_einstellungen(gefiltert)
+
+
+def hole_footer_text() -> str:
+    return hole_einstellungen()["footer_text"]
+
+
+def speichere_footer_text(neuer_text: str) -> None:
+    speichere_einstellungen({"footer_text": neuer_text})
+
+
+def hole_gruppenarten() -> list[dict]:
+    try:
+        with get_kompass() as conn:
+            rows = conn.execute(
+                """
+                SELECT id, name, dauer_minuten, betreuungsschluessel, betreuungsgeld_euro, sortierung
+                FROM gruppenarten
+                ORDER BY sortierung ASC, id ASC
+                """
+            ).fetchall()
+            return [dict(r) for r in rows]
+    except Exception:
+        return []
+
+
+def speichere_gruppenart(
+    name: str,
+    dauer_minuten: int,
+    betreuungsschluessel: int,
+    betreuungsgeld_euro: str,
+    gruppenart_id: int | None = None,
+) -> None:
+    sauber_name = (name or "").strip()
+    sauber_geld = (betreuungsgeld_euro or "").strip().replace("€", "").strip()
+    if not sauber_name or not sauber_geld:
+        raise ValueError("Bitte Gruppenart und Betreuungsgeld angeben.")
+    if dauer_minuten <= 0 or betreuungsschluessel <= 0:
+        raise ValueError("Dauer und Betreuungsschlüssel müssen größer als 0 sein.")
+
+    with get_kompass() as conn:
+        if gruppenart_id:
+            conn.execute(
+                """
+                UPDATE gruppenarten
+                SET name = ?, dauer_minuten = ?, betreuungsschluessel = ?, betreuungsgeld_euro = ?
+                WHERE id = ?
+                """,
+                (sauber_name, dauer_minuten, betreuungsschluessel, sauber_geld, gruppenart_id),
+            )
+        else:
+            conn.execute(
+                """
+                INSERT INTO gruppenarten (name, dauer_minuten, betreuungsschluessel, betreuungsgeld_euro)
+                VALUES (?, ?, ?, ?)
+                """,
+                (sauber_name, dauer_minuten, betreuungsschluessel, sauber_geld),
+            )
+
+
+def loesche_gruppenart(gruppenart_id: int) -> None:
+    with get_kompass() as conn:
+        conn.execute("DELETE FROM gruppenarten WHERE id = ?", (gruppenart_id,))
+
+
+def speichere_beitrags_rahmen(
+    betreuungsgeld_gueltig_ab: str,
+    eintritt_gueltig_ab: str,
+    eintritt_unter_14: str,
+    eintritt_ab_14: str,
+    eintritt_hinweis: str,
+) -> None:
+    speichere_einstellungen(
+        {
+            "anmeldung_betreuungsgeld_gueltig_ab": (betreuungsgeld_gueltig_ab or "").strip(),
+            "anmeldung_eintritt_gueltig_ab": (eintritt_gueltig_ab or "").strip(),
+            "anmeldung_eintritt_unter_14": (eintritt_unter_14 or "").replace("€", "").strip(),
+            "anmeldung_eintritt_ab_14": (eintritt_ab_14 or "").replace("€", "").strip(),
+            "anmeldung_eintritt_hinweis": (eintritt_hinweis or "").strip(),
+        }
+    )

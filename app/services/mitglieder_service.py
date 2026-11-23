@@ -102,6 +102,26 @@ def log_gruppenentfernung_historie(
     )
 
 
+def log_gruppenverschiebung_historie(
+    mitglied_id: int,
+    quell_gruppe_name: str,
+    ziel_gruppe_name: str,
+    wechsel_datum_de: str | None = None,
+    bearbeiter_uname: str | None = None,
+):
+    detail = (
+        f"Verschoben von {quell_gruppe_name} in {ziel_gruppe_name} (zum {wechsel_datum_de})"
+        if wechsel_datum_de
+        else f"Verschoben von {quell_gruppe_name} in {ziel_gruppe_name}"
+    )
+    log_mitglied_historie(
+        mitglied_id=mitglied_id,
+        ereignis_typ="gruppe_verschoben",
+        bearbeiter_uname=bearbeiter_uname,
+        detail_text=detail,
+    )
+
+
 def get_mitglied_historie(mitglied_id: int) -> tuple[list[dict], dict | None]:
     uname_zu_anzeigename = _lade_uname_zu_anzeigename()
 

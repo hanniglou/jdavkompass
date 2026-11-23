@@ -17,7 +17,9 @@
         {% block content %}{% endblock %}
     </main>
     <footer>
-        &copy; 2026 JDAV Hildesheim. Alle Rechte vorbehalten.
-    </footer>
+     {% for zeile in footer_extern_zeilen %}
+         {{ zeile }}{% if not loop.last %}<br>{% endif %}
+     {% endfor %}
+ </footer>
 </body>
 </html>

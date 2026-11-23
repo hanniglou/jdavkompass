@@ -554,6 +554,10 @@ h4 {
     margin-bottom: 15px;
 }
 
+.form-grid--align-start {
+    align-items: start;
+}
+
 .form-group {
     display: flex;
     flex-direction: column;
@@ -579,6 +583,79 @@ h4 {
 }
 
 /* ========================
+   ZIELGRUPPEN-AUSWAHL (MITGLIED VERSCHIEBEN)
+======================== */
+.zielgruppe-liste {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    padding-bottom: 0.25rem;
+    overflow: visible;
+}
+
+.zielgruppe-option {
+    appearance: none;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background: #ffffff;
+    color: var(--text-color-darkgrey);
+    text-align: left;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.92rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    transition: background-color 0.14s ease, border-color 0.14s ease, color 0.14s ease;
+}
+
+.zielgruppe-option:hover {
+    border-color: #9ca3af;
+    background: #f9fafb;
+}
+
+.zielgruppe-option.is-selected {
+    background: #dcfce7;
+    border-color: #4ade80;
+    color: #15803d;
+}
+
+.zielgruppe-option.is-selected .text-muted {
+    color: #166534;
+}
+
+.zielgruppe-bubble {
+    width: 16px;
+    height: 16px;
+    border-radius: 999px;
+    border: 1.5px solid #9ca3af;
+    background: #ffffff;
+    flex-shrink: 0;
+    position: relative;
+    transition: border-color 0.14s ease, background-color 0.14s ease;
+}
+
+.zielgruppe-option.is-selected .zielgruppe-bubble {
+    border-color: #15803d;
+    background: #15803d;
+}
+
+.zielgruppe-option.is-selected .zielgruppe-bubble::after {
+    content: "";
+    position: absolute;
+    inset: 4px;
+    border-radius: 999px;
+    background: #ffffff;
+}
+
+.zielgruppe-option-text {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.35rem;
+}
+
+/* ========================
    TABLE & ATTENDANCE STYLES
 ======================== */
 .table-container,
@@ -596,6 +673,7 @@ h4 {
 .table-container.section-box {
     margin-bottom: 30px;
     padding: 20px;
+    overflow: visible;
 }
 
 .table-container.danger-box {
@@ -674,6 +752,11 @@ h4 {
     min-width: 240px;
 }
 
+.gruppen-zwischenzeile .zwischenzeile-hauptzeile,
+.gruppen-zwischenzeile .zwischenzeile-folgezeile {
+    display: inline;
+}
+
 .kuendigung-row,
 .kuendigung-hinweis-row {
     background-color: #fffbeb;
@@ -685,6 +768,23 @@ h4 {
     color: #92400e;
     font-weight: var(--fw-medium);
     padding: 0.25rem 0.85rem 0.65rem 0.85rem;
+}
+
+.mitglied-link {
+    color: inherit;
+    text-decoration: none;
+    transition: color 0.14s ease;
+}
+
+.mitglied-link:hover {
+    color: var(--color-highlight);
+    text-decoration: underline;
+}
+
+.archiv-cell {
+    background-color: #f3f4f6;
+    border-left: 4px solid #9ca3af;
+    color: #4b5563;
 }
 
 .no-results-msg {
@@ -902,6 +1002,36 @@ h4 {
     padding: 0.55rem 0.75rem !important;
     border-top: 2px solid #d1d5db;
     border-bottom: 1px solid #e5e7eb;
+}
+
+.gruppen-zwischenzeile.zwischenzeile--amber td {
+    background-color: #fffbeb;
+    color: #92400e;
+    font-weight: var(--fw-regular);
+    border-top: 1px solid #fcd34d;
+    border-bottom: 1px solid #fde68a;
+    border-left: 4px solid #f59e0b;
+}
+
+.gruppen-zwischenzeile.zwischenzeile--blue td {
+    background-color: #eff6ff;
+    color: #1e40af;
+    font-weight: var(--fw-regular);
+    border-top: 1px solid #93c5fd;
+    border-bottom: 1px solid #bfdbfe;
+    border-left: 4px solid #3b82f6;
+}
+
+.gruppen-zwischenzeile .zwischenzeile-hauptzeile {
+    font-weight: var(--fw-bold);
+    line-height: 1.35;
+}
+
+.gruppen-zwischenzeile .zwischenzeile-folgezeile {
+    font-size: 0.875rem;
+    font-weight: var(--fw-regular);
+    line-height: 1.4;
+    margin-top: 0.15rem;
 }
 
 .kuendigung-cell {
@@ -1739,4 +1869,31 @@ input[type="checkbox"] {
 
 .nowrap-cell {
     white-space: nowrap;
+}
+
+.gruppen-filter-bar {
+    margin-bottom: 1.5rem;
+}
+
+.gruppen-tag-block {
+    margin-bottom: 2rem;
+}
+
+.gruppen-tag-heading {
+    margin-bottom: 0.9rem;
+}
+
+.gruppe-zeit-subheading {
+    margin: 0.25rem 0 0.75rem 0;
+    font-weight: var(--fw-regular);
+    color: var(--text-color-darkgrey);
+}
+
+.gruppen-admin-hinweis {
+    margin-top: 1.5rem;
+}
+
+.cards .card {
+    flex: 1 1 320px;
+    max-width: 600px;
 }

@@ -5,9 +5,7 @@
 {% block content %}
 <h1>Teilnehmeranmeldung</h1>
 <p>
-    Bitte gebe hier alle Daten für das anzumeldene Mitglied ein. Sollten sich in Zukunft Daten ändern,
-    bitte teile dies den Gruppenleitenden mit. Für eine Teilname an einer Jugendgruppe ist eine
-    Mitgliedschaft im DAV erforderlich.
+    {{ anmeldung_cfg.anmeldung_intro_text }}
 </p>
 
 <form action="{{ url_for('mitglieder.anmeldung') }}" method="POST">
@@ -52,20 +50,24 @@
 
     <fieldset>
         <legend>Jugendgruppenbeiträge</legend>
-        <p>Neben der Mitgliedschaft im DAV Sektion Hildesheim erfordert die Teilnahme an einer Jugendgruppe eine monatliche Teilnahmegebühr, welche sich aus einem Betreuungsgeld und dem Jugendgruppeneintrittsgeld zusammen setzt und quartalsweise eingezogen wird. Es besteht die Möglichkeit bei den ersten zwei Termine zu schnuppern, ohne das eine Mitgliedschaft oder ein Beitrag fällig ist. Die Mitgliedschaft einer Jugendgruppe ist monatlich kündbar, dazu melden Sie sich bei jugend@jdav-hildesheim.de per Email.</p>
+        <p>{{ anmeldung_cfg.anmeldung_beitraege_intro }}</p>
         <br>
-        <h3>Betreuungsgeld: (gültig ab dem 1.3.2026)</h3>
-        <p>Jugendgruppe 1,5h: 19€</p>
-        <p>Boudergruppe 1h: 16€</p>
-        <p>Mini Gruppe 1h: 19€</p>
-        <p>Inklusive Gruppe 14 tägig: 14€</p>
-        <h3>Jugendgruppeneintrittspreis: (gültig ab dem 1.02.2024)</h3>
-        <p>Kinder bis 14 Jahren: 13,50€</p>
-        <p>Jugendliche ab 14 Jahren: 25€</p>
-        <p>Für die Inklusive Gruppe wird kein Eintritt fällig</p>
+        <h3>Monatliches Betreuungsgeld:</h3>
+        <p>(Gültig ab {{ anmeldung_cfg.anmeldung_betreuungsgeld_gueltig_ab }})</p>
+        {% for ga in gruppenarten %}
+            <p>{{ ga.name }} {{ ga.dauer_minuten }} Min: <strong>{{ ga.betreuungsgeld_euro }} €</strong></p>
+        {% endfor %}
+        <br>
+        <h3>Eintrittspreis:</h3>
+        <p>(Gültig ab {{ anmeldung_cfg.anmeldung_eintritt_gueltig_ab }})</p>
+        <p>Unter 14 Jahren: <strong>{{ anmeldung_cfg.anmeldung_eintritt_unter_14 }} €</strong></p>
+        <p>Ab 14 Jahren: <strong>{{ anmeldung_cfg.anmeldung_eintritt_ab_14 }} €</strong></p>
+        {% if anmeldung_cfg.anmeldung_eintritt_hinweis %}
+            <p>{{ anmeldung_cfg.anmeldung_eintritt_hinweis }}</p>
+        {% endif %}
         <br>
         <label>
-            <input type="checkbox" name="beitraege_bestaetigt" required>Die Jugendgruppenbeiträge sollen von dem Konto, von dem auch die Mitgliedsbeiträge an die Sektion eingezogen werden, abgebucht werden (falls die Teilnehmende Person nach dem Schnuppern die Gruppe weiter besucht)
+            <input type="checkbox" name="beitraege_bestaetigt" required>Die Jugendgruppenbeiträge sollen von dem Konto, von dem auch die Mitgliedsbeiträge an die Sektion eingezogen werden, abgebucht werden.
         </label>
     </fieldset>
 
@@ -74,15 +76,19 @@
         <label>
             Im unteren Feld kann eine Unterschrift endweder per Maus oder per Finger gegeben werden.
         </label>
-        <label>
-            <input type="checkbox" name="datenschutz_bestaetigt" required>Ich habe die <a href="{{ url_for('index.download', file='Datenschutzerklärung.pdf') }}">Datenschutzerklärung</a> gelesen und bin mit der digitalen Datenvereinbarung einverstanden
+        
+        <label style="display: block; line-height: 1.5; margin-bottom: 0.5rem;">
+            <input type="checkbox" name="datenschutz_bestaetigt" required style="width: auto; display: inline; vertical-align: middle; margin: 0 0.5rem 0 0;">Ich habe die <a href="{{ url_for('index.download', file='Datenschutzerklärung.pdf') }}" style="display: inline; margin: 0; padding: 0;">Datenschutzerklärung</a> gelesen und bin mit der digitalen Datenvereinbarung einverstanden.
         </label>
-        <label>
-            <input type="checkbox" name="bilder_bestaetigt">Während der Jugendgruppe dürfen von der teilnehmenden Personen Bild und Videomaterial aufgenommen werden und auf den Vereinsmedien der JDAV (Vereinszeitschrift, Socialmedia) veröffentlicht werden.
+
+        <label style="display: block; line-height: 1.5; margin-bottom: 0.5rem;">
+            <input type="checkbox" name="bilder_bestaetigt" style="width: auto; display: inline; vertical-align: middle; margin: 0 0.5rem 0 0;">Während der Jugendgruppe dürfen von der teilnehmenden Personen Bild und Videomaterial aufgenommen werden und auf den Vereinsmedien der JDAV (Vereinszeitschrift, Socialmedia) veröffentlicht werden.
         </label>
-        <label>
-            <input type="checkbox" name="richtigkeit_bestaetigt" required>Ich bestätige die Richtigkeit meiner Angaben
+
+        <label style="display: block; line-height: 1.5; margin-bottom: 0.5rem;">
+            <input type="checkbox" name="richtigkeit_bestaetigt" required style="width: auto; display: inline; vertical-align: middle; margin: 0 0.5rem 0 0;">Ich bestätige die Richtigkeit meiner Angaben
         </label>
+
         <label>Mit einer digitalen Unterschrift und dem Anmelden einer teilnehmenden Person bestätige ich die Auswahl der folgenden Optionen</label>
         <canvas id="signature-pad"></canvas><br>
         <button type="button" class="btn-kompass btn-kompass--secondary-light" onclick="clearSignature()">Unterschrift löschen</button>

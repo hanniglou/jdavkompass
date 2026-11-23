@@ -32,11 +32,17 @@
                     <td>{{ mitglied.vorname }} {{ mitglied.nachname }}</td>
                     <td>{{ mitglied.geburtsdatum or '-' }}</td>
                     <td>
-                        <button type="button"
-                                class="btn-kompass btn-kompass--danger-light"
-                                onclick="removeMitglied({{ mitglied.id }}, '{{ mitglied.vorname }} {{ mitglied.nachname }}')">
-                            aus Gruppe entfernen
-                        </button>
+                        <div class="inline-form">
+                            <a href="{{ url_for('gruppe.mitglied_verschieben', gruppe_id=gruppe.id, mitglied_id=mitglied.id) }}"
+                            class="btn-kompass btn-kompass--warning-light">
+                                verschieben
+                            </a>
+                            <button type="button"
+                                    class="btn-kompass btn-kompass--danger-light"
+                                    onclick="removeMitglied({{ mitglied.id }}, '{{ mitglied.vorname }} {{ mitglied.nachname }}')">
+                                entfernen
+                            </button>
+                        </div>
                     </td>
                 </tr>
                 {% else %}
@@ -52,7 +58,7 @@
         <h3>Jugendleitende ({{ aktive_leiter|length }})</h3>
 
         <div class="search-add-box">
-            <input type="text" id="search_gruppenleiter" class="search-add-input" placeholder="Gruppenleiter:in suchen und hinzufügen..." oninput="searchGruppenleiter()">
+            <input type="text" id="search_gruppenleiter" class="search-add-input" placeholder="JuLei suchen und hinzufügen..." oninput="searchGruppenleiter()">
             <div id="gruppenleiter_results" class="search-add-results"></div>
         </div>
 
@@ -115,10 +121,16 @@
             <div class="form-group form-group--spaced">
                 <label for="gruppenart">Gruppenart</label>
                 <select id="gruppenart" name="gruppenart">
-                    <option value="Inklusionsgruppe" {% if gruppe.gruppenart == 'Inklusionsgruppe' %}selected{% endif %}>Inklusionsgruppe</option>
-                    <option value="Bouldergruppe" {% if gruppe.gruppenart == 'Bouldergruppe' %}selected{% endif %}>Bouldergruppe</option>
-                    <option value="Minis" {% if gruppe.gruppenart == 'Minis' %}selected{% endif %}>Minis</option>
-                    <option value="Jugendgruppe" {% if gruppe.gruppenart == 'Jugendgruppe' %}selected{% endif %}>Jugendgruppe</option>
+                    <option value="">— Bitte wählen —</option>
+                    {% set bekannte_namen = gruppenarten | map(attribute='name') | list %}
+                    {% if gruppe.gruppenart and gruppe.gruppenart not in bekannte_namen %}
+                        <option value="{{ gruppe.gruppenart }}" selected>{{ gruppe.gruppenart }}</option>
+                    {% endif %}
+                    {% for ga in gruppenarten %}
+                        <option value="{{ ga.name }}" {% if gruppe.gruppenart == ga.name %}selected{% endif %}>
+                            {{ ga.name }} ({{ ga.dauer_minuten }} Min · 1:{{ ga.betreuungsschluessel }})
+                        </option>
+                    {% endfor %}
                 </select>
             </div>
             <button type="submit" id="gruppen-stammdaten-btn" class="btn-kompass btn-kompass--success is-disabled" disabled>

@@ -19,14 +19,16 @@ from app.routes.auth import require_role
 from app.services.admin_service import log_aenderung
 from app.services.gruppe_service import (
     baue_anwesenheits_excel,
+    bereinige_und_hole_gruppen_hinweise,
     get_anwesenheit,
     get_gruppe,
     get_gruppenleiter,
-    get_mitglieder,
     get_vertretungen_by_date,
     get_vertretungs_kandidaten,
     gruppenleiter_aus_gruppe_entfernen,
     gruppenleiter_zu_gruppe_hinzufuegen,
+    gruppenwechsel_hinweis_erfassen,
+    hole_teilnehmende_und_quartalsende,
     mitglied_aus_gruppe_entfernen,
     mitglied_zu_gruppe_hinzufuegen,
     new_day,
@@ -38,6 +40,7 @@ from app.services.gruppe_service import (
 from app.services.mitglieder_service import (
     log_gruppenaufnahme_historie,
     log_gruppenentfernung_historie,
+    log_gruppenverschiebung_historie,
 )
 from app.services.utils import heute
 
@@ -53,7 +56,22 @@ def gruppe(gruppe_id):
     total_age = 0
 
     gruppe = get_gruppe(gruppe_id)
-    mitglieder = get_mitglieder(gruppe_id)
+    entfernte_namen, gekuendigt_folgequartal_hinweise, verschoben_folgequartal_hinweise = (
+        bereinige_und_hole_gruppen_hinweise(
+            gruppe_id=gruppe_id,
+            referenz_datum=today,
+        )
+    )
+    if entfernte_namen:
+        log_aenderung(
+            "Mitglieder nach Kündigungsquartal entfernt",
+            f"{gruppe['name']} (ID {gruppe_id}): {', '.join(entfernte_namen)}",
+        )
+
+    mitglieder, anzahl_aktuell, anzahl_quartalsende = hole_teilnehmende_und_quartalsende(
+        gruppe_id=gruppe_id,
+        referenz_datum=today,
+    )
     gruppenleiter = get_gruppenleiter(gruppe_id)
 
     alle_daten_mitglieder, anwesenheit = get_anwesenheit(gruppe_id, "mitglied")
@@ -181,6 +199,8 @@ def gruppe(gruppe_id):
         today=str(today),
         gruppe=gruppe,
         mitglieder=mitglieder,
+        anzahl_aktuell=anzahl_aktuell,
+        anzahl_quartalsende=anzahl_quartalsende,
         anwesenheit=anwesenheit,
         alle_daten=sortierte_daten,
         daten_formatiert=daten_formatiert,
@@ -190,6 +210,8 @@ def gruppe(gruppe_id):
         zeitraum=zeitraum,
         vertretungs_kandidaten=vertretungs_kandidaten,
         vertretungen=vertretungen,
+        gekuendigt_folgequartal_hinweise=gekuendigt_folgequartal_hinweise,
+        verschoben_folgequartal_hinweise=verschoben_folgequartal_hinweise,
     )
 
 
@@ -247,11 +269,135 @@ def mitglied_zu_gruppe(gruppe_id, mitglied_id):
 def gruppenleiter_zu_gruppe(gruppe_id, gruppenleiter_id):
     gruppenleiter_zu_gruppe_hinzufuegen(gruppe_id, gruppenleiter_id)
     log_aenderung(
-        "Jugendleitende:r zu Gruppe hinzugefügt",
+        "JuLei zu Gruppe hinzugefügt",
         f"JuLei-ID {gruppenleiter_id} -> Gruppe-ID {gruppe_id}",
     )
 
     return redirect(url_for("gruppe.gruppe", gruppe_id=gruppe_id))
+
+
+@gruppe_bp.route(
+    "/gruppe/<int:gruppe_id>/mitglied/<int:mitglied_id>/verschieben",
+    methods=["GET", "POST"],
+)
+@login_required
+@require_role(2)
+def mitglied_verschieben(gruppe_id, mitglied_id):
+    heute_datum = date.today()
+    quell_gruppe = get_gruppe(gruppe_id)
+    if not quell_gruppe:
+        abort(404)
+
+    with get_kompass() as db:
+        mitglied = db.execute(
+            "SELECT id, vorname, nachname FROM mitglieder WHERE id = ?",
+            (mitglied_id,),
+        ).fetchone()
+        if not mitglied:
+            abort(404)
+
+        ziel_gruppen = db.execute(
+            """
+            SELECT id, name, wochentag, startzeit
+            FROM jugendgruppen
+            WHERE id != ?
+            ORDER BY name COLLATE NOCASE ASC
+            """,
+            (gruppe_id,),
+        ).fetchall()
+
+    if request.method == "POST":
+        ziel_gruppe_raw = (request.form.get("ziel_gruppe_id") or "").strip()
+        datum_raw = (request.form.get("wechsel_datum") or "").strip()
+
+        if not ziel_gruppe_raw.isdigit():
+            flash("Bitte eine gültige Zielgruppe auswählen.", "error")
+            return redirect(
+                url_for(
+                    "gruppe.mitglied_verschieben",
+                    gruppe_id=gruppe_id,
+                    mitglied_id=mitglied_id,
+                )
+            )
+
+        ziel_gruppe_id = int(ziel_gruppe_raw)
+        if ziel_gruppe_id == gruppe_id:
+            flash("Die Zielgruppe muss sich von der aktuellen Gruppe unterscheiden.", "error")
+            return redirect(
+                url_for(
+                    "gruppe.mitglied_verschieben",
+                    gruppe_id=gruppe_id,
+                    mitglied_id=mitglied_id,
+                )
+            )
+
+        ziel_gruppe = get_gruppe(ziel_gruppe_id)
+        if not ziel_gruppe:
+            flash("Die ausgewählte Zielgruppe existiert nicht.", "error")
+            return redirect(
+                url_for(
+                    "gruppe.mitglied_verschieben",
+                    gruppe_id=gruppe_id,
+                    mitglied_id=mitglied_id,
+                )
+            )
+
+        try:
+            wechsel_datum = (
+                dt.datetime.strptime(datum_raw, "%Y-%m-%d").date()
+                if datum_raw
+                else heute_datum
+            )
+        except ValueError:
+            flash("Bitte ein gültiges Wechseldatum angeben.", "error")
+            return redirect(
+                url_for(
+                    "gruppe.mitglied_verschieben",
+                    gruppe_id=gruppe_id,
+                    mitglied_id=mitglied_id,
+                )
+            )
+
+        voller_name = f"{mitglied['vorname']} {mitglied['nachname']}".strip()
+        wechsel_datum_iso = wechsel_datum.isoformat()
+        wechsel_datum_de = wechsel_datum.strftime("%d.%m.%Y")
+
+        mitglied_zu_gruppe_hinzufuegen(ziel_gruppe_id, mitglied_id)
+        mitglied_aus_gruppe_entfernen(gruppe_id, mitglied_id)
+
+        gruppenwechsel_hinweis_erfassen(
+            quell_gruppe_id=gruppe_id,
+            ziel_gruppe_name=ziel_gruppe["name"],
+            mitglied_id=mitglied_id,
+            mitglied_name=voller_name,
+            wechsel_datum=wechsel_datum_iso,
+        )
+
+        log_gruppenverschiebung_historie(
+            mitglied_id=mitglied_id,
+            quell_gruppe_name=quell_gruppe["name"],
+            ziel_gruppe_name=ziel_gruppe["name"],
+            wechsel_datum_de=wechsel_datum_de,
+            bearbeiter_uname=current_user.display_name,
+        )
+        log_aenderung(
+            "Mitglied in andere Gruppe verschoben",
+            f"{voller_name} (ID {mitglied_id}): {quell_gruppe['name']} -> {ziel_gruppe['name']} (am {wechsel_datum_de})",
+        )
+        flash(
+            f"{voller_name} wurde am {wechsel_datum_de} in „{ziel_gruppe['name']}“ verschoben.",
+            "success",
+        )
+        return redirect(url_for("gruppe.gruppe_bearbeiten", gruppe_id=gruppe_id))
+
+    return render_template(
+        "mitglied_verschieben.html",
+        gruppe=quell_gruppe,
+        mitglied=mitglied,
+        ziel_gruppen=ziel_gruppen,
+        default_iso=heute_datum.isoformat(),
+        default_de=heute_datum.strftime("%d.%m.%Y"),
+    )
 
 
 @gruppe_bp.route(
@@ -285,7 +431,7 @@ def mitglied_entfernen(gruppe_id, mitglied_id):
 def gruppenleiter_entfernen(gruppe_id, gruppenleiter_id):
     gruppenleiter_aus_gruppe_entfernen(gruppe_id, gruppenleiter_id)
     log_aenderung(
-        "Jugendleitende:r aus Gruppe entfernt",
+        "JuLei aus Gruppe entfernt",
         f"JuLei-ID {gruppenleiter_id} <- Gruppe-ID {gruppe_id}",
     )
 
