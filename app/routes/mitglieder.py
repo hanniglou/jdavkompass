@@ -555,12 +555,16 @@ def kuendigung_bestaetigen_route(kuendigung_id):
             hinweise.append("in Mitglieder vermerkt")
         if ergebnis["interne_mails_gesendet"]:
             hinweise.append(f"{ergebnis['interne_mails_gesendet']} interne Info-Mail(s) gesendet")
+        if ergebnis.get("dav_gs_mails_gesendet"):
+            hinweise.append(f"{ergebnis['dav_gs_mails_gesendet']} DAV-Info-Mail(s) an Geschäftsstelle gesendet")
 
         zusatz = f" ({', '.join(hinweise)})" if hinweise else ""
         flash(
             f"Kündigung #{ergebnis['vorgangsnummer']} bestätigt und Bestätigung versendet{zusatz}.",
             "success",
         )
+        for mf in ergebnis.get("mail_fehler") or []:
+            flash(mf, "warning")
     except Exception as exc:
         flash(f"Fehler beim Bestätigen der Kündigung: {exc}", "error")
 

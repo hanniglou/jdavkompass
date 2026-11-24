@@ -23,15 +23,15 @@
     <fieldset>
         <legend>Teilnehmende Person (Kind)</legend>
         <label>Vorname:
-            <input type="text" name="mitglied_vorname" value="{{ form_data.get('mitglied_vorname', '') }}" required>
+            <input type="text" name="mitglied_vorname" id="mitglied_vorname" value="{{ form_data.get('mitglied_vorname', '') }}" required>
         </label>
         <label>Nachname:
-            <input type="text" name="mitglied_nachname" value="{{ form_data.get('mitglied_nachname', '') }}" required>
+            <input type="text" name="mitglied_nachname" id="mitglied_nachname" value="{{ form_data.get('mitglied_nachname', '') }}" required>
         </label>
     </fieldset>
 
     <fieldset>
-        <legend>Erziehungsberechtigte/r</legend>
+        <legend>Erziehungsberechtigte:r</legend>
         <label>Vorname:
             <input type="text" name="eb_vorname" value="{{ form_data.get('eb_vorname', '') }}" required>
         </label>
@@ -85,26 +85,31 @@
 
     <fieldset>
         <legend>DAV-Sektionsmitgliedschaft</legend>
-        <label>
-            <input type="checkbox" name="dav_sektion_kuendigen" id="dav-sektion-checkbox"
-                {% if form_data.get('dav_sektion_kuendigen') %}checked{% endif %}>
-            Ebenfalls Kündigung der Mitgliedschaft in der DAV-Sektion?
-        </label>
+        <p>
+            Soll die Mitgliedschaft im DAV von <strong class="dav-kind-name">dieser Person</strong> ebenfalls gekündigt werden?
+        </p>
 
-        <div id="dav-sektion-hinweis" class="dav-sektion-hinweis">
-            <p>
-                <strong>Wichtiger Hinweis:</strong> Dieses Formular gilt ausschließlich für die Jugendgruppe der JDAV Hildesheim
-                und <strong>gilt explizit nicht</strong> als Kündigung Deiner Mitgliedschaft in der DAV-Sektion Hildesheim.
-                Eine Kündigung der Sektionsmitgliedschaft muss gesondert schriftlich (postalisch oder per E-Mail an
-                <a href="mailto:info@dav-hildesheim.de">info@dav-hildesheim.de</a>) erfolgen. Hierfür können andere Fristen
-                und Kündigungsbedingungen gelten.
-            </p>
-            <label>
-                <input type="checkbox" name="dav_hinweis_bestaetigt" id="dav-hinweis-bestaetigt"
-                    {% if form_data.get('dav_hinweis_bestaetigt') %}checked{% endif %}>
-                Ich habe verstanden, dass dies nicht als Kündigung der DAV-Sektionsmitgliedschaft gilt und ich diese ggf. separat an die DAV-Sektion richten muss.
+        <div class="radio-option-row">
+            <input type="radio" id="dav-sektion-nein" name="dav_sektion_kuendigen" value="nein"
+                class="inline-radio"
+                {% if form_data.get('dav_sektion_kuendigen', 'nein') != 'ja' %}checked{% endif %}>
+            <label for="dav-sektion-nein" class="inline-radio-label">
+                Nein
             </label>
         </div>
+
+        <div class="radio-option-row">
+            <input type="radio" id="dav-sektion-ja" name="dav_sektion_kuendigen" value="ja"
+                class="inline-radio"
+                {% if form_data.get('dav_sektion_kuendigen') == 'ja' %}checked{% endif %}>
+            <label for="dav-sektion-ja" class="inline-radio-label">
+                Ja (zum {{ optionen.dav_naechste_kuendigung_de }})
+            </label>
+        </div>
+
+        <p class="legal-note" style="margin-top: 0.75rem;">
+            Hinweis: Die Mitgliedschaft des DAV hat eine andere Kündigungsfrist: Eine Kündigung ist bis zum 30.09. eines jedes Jahres zum Jahresende möglich. Erfolgt eine Kündigung erst nach dem 01.10. verlängert sich die Mitgliedschaft um ein Kalenderjahr.
+        </p>
     </fieldset>
 
     <fieldset>
@@ -153,23 +158,24 @@
 </form>
 
 <script>
-    const davCheckbox = document.getElementById("dav-sektion-checkbox");
-    const davHinweisBox = document.getElementById("dav-sektion-hinweis");
-    const davBestaetigtCheckbox = document.getElementById("dav-hinweis-bestaetigt");
+    const davKindNameSpans = document.querySelectorAll(".dav-kind-name");
+    const vornameInput = document.getElementById("mitglied_vorname");
+    const nachnameInput = document.getElementById("mitglied_nachname");
     const radioMonatsende = document.getElementById("radio-monatsende");
     const selectMonatsende = document.getElementById("select-monatsende");
 
-    function updateDavHinweis() {
-        const aktiv = davCheckbox.checked;
-        davHinweisBox.style.display = aktiv ? "block" : "none";
-        davBestaetigtCheckbox.required = aktiv;
-        if (!aktiv) {
-            davBestaetigtCheckbox.checked = false;
-        }
+    function aktualisiereDavKindName() {
+        const vorname = vornameInput ? vornameInput.value.trim() : "";
+        const nachname = nachnameInput ? nachnameInput.value.trim() : "";
+        const vollName = [vorname, nachname].filter(Boolean).join(" ") || "dieser Person";
+        davKindNameSpans.forEach((el) => {
+            el.textContent = vollName;
+        });
     }
 
-    davCheckbox.addEventListener("change", updateDavHinweis);
-    updateDavHinweis();
+    if (vornameInput) vornameInput.addEventListener("input", aktualisiereDavKindName);
+    if (nachnameInput) nachnameInput.addEventListener("input", aktualisiereDavKindName);
+    aktualisiereDavKindName();
 
     selectMonatsende.addEventListener("change", () => {
         radioMonatsende.checked = true;

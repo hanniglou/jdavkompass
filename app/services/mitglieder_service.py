@@ -4,7 +4,6 @@ from flask_login import current_user
 from app.models import get_accounts, get_kompass
 from app.services.mail_service import (
     hole_adressbuch_eintraege,
-    sende_interne_kuendigungs_info,
     sende_kuendigungsbestaetigung,
 )
 
@@ -952,19 +951,6 @@ def manuelle_kuendigung_erfassen(
         "grund": grund_text,
     }
 
-    bestaetigung_gesendet = False
-    mail_fehler: list[str] = []
-
-    if sende_bestaetigung:
-        if mail_daten["eb_email"]:
-            try:
-                sende_kuendigungsbestaetigung(mail_daten, freitext=freitext_clean)
-                bestaetigung_gesendet = True
-            except Exception as exc:
-                mail_fehler.append(f"Bestätigungs-Mail fehlgeschlagen: {exc}")
-        else:
-            mail_fehler.append("Keine E-Mail-Adresse bei den Erziehungsberechtigten hinterlegt.")
-
     selected_ids = set()
     for raw_id in adressbuch_ids_raw or []:
         try:
@@ -972,25 +958,35 @@ def manuelle_kuendigung_erfassen(
         except (TypeError, ValueError):
             continue
 
-    ausgewaehlte_empfaenger = [
-        e for e in hole_adressbuch_eintraege() if e.get("aktiv") and e.get("id") in selected_ids
-    ]
-    interne_mails_gesendet = 0
-    if ausgewaehlte_empfaenger:
-        try:
-            interne_mails_gesendet = sende_interne_kuendigungs_info(
-                ausgewaehlte_empfaenger,
-                mail_daten,
-                freitext=freitext_clean,
-            )
-        except Exception as exc:
-            mail_fehler.append(f"Interne Info-Mail fehlgeschlagen: {exc}")
+    bcc_adressen: list[str] = []
+    for eintrag in hole_adressbuch_eintraege():
+        if eintrag.get("aktiv") and eintrag.get("id") in selected_ids:
+            addr = (eintrag.get("email") or "").strip()
+            if addr and addr.lower() not in {a.lower() for a in bcc_adressen}:
+                bcc_adressen.append(addr)
+
+    bestaetigung_gesendet = False
+    mail_fehler: list[str] = []
+
+    if sende_bestaetigung:
+        if mail_daten["eb_email"]:
+            try:
+                sende_kuendigungsbestaetigung(
+                    mail_daten,
+                    freitext=freitext_clean,
+                    bcc_empfaenger=bcc_adressen,
+                )
+                bestaetigung_gesendet = True
+            except Exception as exc:
+                mail_fehler.append(f"Bestätigungs-Mail fehlgeschlagen: {exc}")
+        else:
+            mail_fehler.append("Keine E-Mail-Adresse bei den Erziehungsberechtigten hinterlegt.")
 
     return {
         "vorgangsnummer": vorgangsnummer,
         "kuendigung_datum_de": k_datum_de,
         "bestaetigung_gesendet": bestaetigung_gesendet,
-        "interne_mails_gesendet": interne_mails_gesendet,
+        "interne_mails_gesendet": len(bcc_adressen) if bestaetigung_gesendet else 0,
         "mail_fehler": mail_fehler,
     }
 

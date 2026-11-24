@@ -245,7 +245,9 @@
                     <select id="empfaenger_email" name="empfaenger_email" required {% if not adressbuch %}disabled{% endif %}>
                         {% if adressbuch %}
                             {% for eintrag in adressbuch %}
-                                <option value="{{ eintrag.email }}">{{ eintrag.bezeichnung }} ({{ eintrag.email }})</option>
+                                {% set label_funktion = eintrag.funktion or eintrag.bezeichnung %}
+                                {% set label_person = ' – ' ~ eintrag.name if eintrag.name else '' %}
+                                <option value="{{ eintrag.email }}">{{ label_funktion }}{{ label_person }} ({{ eintrag.email }})</option>
                             {% endfor %}
                         {% else %}
                             <option value="">Bitte zuerst unten eine Adresse anlegen</option>
@@ -264,19 +266,24 @@
         <div class="adressbuch-section">
             <h4>Adressbuch verwalten</h4>
             <p class="adressbuch-desc">
-                Diese Adressen stehen sowohl hier für Test-Mails als auch für interne Kündigungs-Benachrichtigungen zur Verfügung.
+                Diese Adressen stehen sowohl hier für Test-Mails als auch für BCC-Kopien bei Kündigungsbestätigungen, Reply-To (Jugend-Verwaltung) sowie die Geschäftsstelle zur Verfügung.
             </p>
 
             <form method="POST" class="adressbuch-add-form">
                 <input type="hidden" name="form_typ" value="adressbuch_add">
                 <div class="form-grid">
                     <div class="form-group">
-                        <label for="ab_bezeichnung">Bezeichnung *</label>
-                        <input id="ab_bezeichnung" type="text" name="bezeichnung" placeholder="z. B. Jugendleitung / Testpostfach" required>
+                        <label for="ab_funktion">Funktion *</label>
+                        <input id="ab_funktion" type="text" name="funktion" placeholder="z. B. Geschäftsstelle / Jugend-Verwaltung" required>
                     </div>
 
                     <div class="form-group">
-                        <label for="ab_email">E-Mail-Adresse *</label>
+                        <label for="ab_name">Name</label>
+                        <input id="ab_name" type="text" name="name" placeholder="z. B. Peter">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="ab_email">E-Mail *</label>
                         <input id="ab_email" type="email" name="email" placeholder="name@verein.de" required>
                     </div>
                 </div>
@@ -289,18 +296,73 @@
             {% if adressbuch %}
                 <div class="adressbuch-list">
                     {% for eintrag in adressbuch %}
-                        <div class="adressbuch-item">
+                        <div class="adressbuch-item" style="flex-wrap: wrap;">
                             <div>
-                                <strong>{{ eintrag.bezeichnung }}</strong>
+                                <strong>{{ eintrag.funktion or eintrag.bezeichnung }}</strong>
+                                {% if eintrag.name %}
+                                    <span>· {{ eintrag.name }}</span>
+                                {% endif %}
                                 <span class="adressbuch-mail">({{ eintrag.email }})</span>
                             </div>
 
-                            <form method="POST" class="no-margin">
-                                <input type="hidden" name="form_typ" value="adressbuch_delete">
-                                <input type="hidden" name="eintrag_id" value="{{ eintrag.id }}">
-                                <button type="submit" class="btn-kompass btn-kompass--danger-light">
-                                    Löschen
+                            <div class="form-actions--row">
+                                <button type="button"
+                                        class="btn-kompass btn-kompass--secondary-light"
+                                        onclick="toggleAdressbuchEdit({{ eintrag.id }})">
+                                    Bearbeiten
                                 </button>
+
+                                <form method="POST" class="no-margin">
+                                    <input type="hidden" name="form_typ" value="adressbuch_delete">
+                                    <input type="hidden" name="eintrag_id" value="{{ eintrag.id }}">
+                                    <button type="submit" class="btn-kompass btn-kompass--danger-light">
+                                        Löschen
+                                    </button>
+                                </form>
+                            </div>
+
+                            <form id="adressbuch-edit-form-{{ eintrag.id }}"
+                                  method="POST"
+                                  style="display: none; width: 100%; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #e5e7eb;">
+                                <input type="hidden" name="form_typ" value="adressbuch_edit">
+                                <input type="hidden" name="eintrag_id" value="{{ eintrag.id }}">
+
+                                <div class="form-grid">
+                                    <div class="form-group">
+                                        <label for="edit_ab_funktion_{{ eintrag.id }}">Funktion *</label>
+                                        <input id="edit_ab_funktion_{{ eintrag.id }}"
+                                               type="text"
+                                               name="funktion"
+                                               value="{{ eintrag.funktion or eintrag.bezeichnung }}"
+                                               required>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label for="edit_ab_name_{{ eintrag.id }}">Name</label>
+                                        <input id="edit_ab_name_{{ eintrag.id }}"
+                                               type="text"
+                                               name="name"
+                                               value="{{ eintrag.name or '' }}">
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label for="edit_ab_email_{{ eintrag.id }}">E-Mail *</label>
+                                        <input id="edit_ab_email_{{ eintrag.id }}"
+                                               type="email"
+                                               name="email"
+                                               value="{{ eintrag.email }}"
+                                               required>
+                                    </div>
+                                </div>
+
+                                <div class="form-actions form-actions--row">
+                                    <button type="submit" class="btn-kompass btn-kompass--success">Änderungen speichern</button>
+                                    <button type="button"
+                                            class="btn-kompass btn-kompass--secondary-light"
+                                            onclick="toggleAdressbuchEdit({{ eintrag.id }})">
+                                        Abbrechen
+                                    </button>
+                                </div>
                             </form>
                         </div>
                     {% endfor %}
@@ -319,19 +381,43 @@ function toggleNeueVorlageForm() {
     box.style.display = box.style.display === "none" ? "block" : "none";
 }
 
+function toggleAdressbuchEdit(eintragId) {
+    const form = document.getElementById("adressbuch-edit-form-" + eintragId);
+    if (!form) return;
+    form.style.display = form.style.display === "none" ? "block" : "none";
+}
+
 document.addEventListener("DOMContentLoaded", function () {
     const textarea = document.getElementById("editor-html-vorlage");
     const frame = document.getElementById("editor-html-preview");
-    if (!textarea || !frame) return;
+    if (textarea && frame) {
+        const updatePreview = () => {
+            frame.srcdoc = textarea.value.trim()
+                ? textarea.value
+                : "<p style='font-family: sans-serif; color: #6b7280; padding: 12px;'>Noch keine HTML-Vorlage hinterlegt (es wird automatisch HTML aus dem Klartext erzeugt).</p>";
+        };
 
-    const updatePreview = () => {
-        frame.srcdoc = textarea.value.trim()
-            ? textarea.value
-            : "<p style='font-family: sans-serif; color: #6b7280; padding: 12px;'>Noch keine HTML-Vorlage hinterlegt (es wird automatisch HTML aus dem Klartext erzeugt).</p>";
-    };
+        textarea.addEventListener("input", updatePreview);
+        updatePreview();
+    }
 
-    textarea.addEventListener("input", updatePreview);
-    updatePreview();
+    const scrollKey = "jdavkompass_email_scroll_y";
+    const savedScrollY = sessionStorage.getItem(scrollKey);
+    if (savedScrollY !== null) {
+        sessionStorage.removeItem(scrollKey);
+        const y = parseInt(savedScrollY, 10);
+        if (!Number.isNaN(y)) {
+            setTimeout(() => {
+                window.scrollTo(0, y);
+            }, 0);
+        }
+    }
+
+    document.querySelectorAll("form").forEach((form) => {
+        form.addEventListener("submit", function () {
+            sessionStorage.setItem(scrollKey, String(window.scrollY));
+        });
+    });
 });
 </script>
 {% endblock %}

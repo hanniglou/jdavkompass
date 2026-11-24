@@ -207,12 +207,27 @@ def _text_zu_html_absaetzen(text: str) -> str:
     return "\n".join(html_teile)
 
 
+def hole_jugend_verwaltung_reply_to() -> str | None:
+    for eintrag in hole_adressbuch_eintraege():
+        if not eintrag.get("aktiv"):
+            continue
+        feld = (eintrag.get("funktion") or eintrag.get("bezeichnung") or "").strip().lower()
+        norm = re.sub(r"[\s_-]+", "", feld)
+        if "jugendverwaltung" in norm:
+            addr = (eintrag.get("email") or "").strip()
+            if addr:
+                return addr
+    return None
+
+
 def _sende_mail(
-    to_addr: str,
+    to_addr: str | list[str] | None,
     subject: str,
     plain_body: str,
     html_body: str,
     attachments: list[tuple[str, bytes, str]] | None = None,
+    bcc_addrs: list[str] | None = None,
+    reply_to: str | None = None,
 ) -> None:
     cfg = hole_mail_konfiguration()
     smtp_server = cfg["smtp_server"]
@@ -224,11 +239,30 @@ def _sende_mail(
     if not password:
         raise RuntimeError("Kein SMTP-Passwort hinterlegt (weder in der E-Mail-Verwaltung noch in .env).")
 
+    to_list = (
+        [a.strip() for a in to_addr if (a or "").strip()]
+        if isinstance(to_addr, (list, tuple))
+        else ([to_addr.strip()] if (to_addr or "").strip() else [])
+    )
+    bcc_list = [a.strip() for a in (bcc_addrs or []) if (a or "").strip()]
+
+    if not to_list and not bcc_list:
+        raise ValueError("Keine Empfänger-Adresse angegeben.")
+
+    effektives_reply_to = (
+        (reply_to or "").strip()
+        or hole_jugend_verwaltung_reply_to()
+        or username
+    )
+
     msg = EmailMessage()
     msg["Subject"] = subject
     msg["From"] = f"{sender_name} <{username}>"
-    msg["To"] = to_addr
-    msg["Reply-To"] = username
+    if to_list:
+        msg["To"] = ", ".join(to_list)
+    if bcc_list:
+        msg["Bcc"] = ", ".join(bcc_list)
+    msg["Reply-To"] = effektives_reply_to
     msg.set_content(plain_body)
     msg.add_alternative(html_body, subtype="html")
 
@@ -287,7 +321,7 @@ def sende_test_mail(schluessel: str, empfaenger_email: str) -> str:
         html_body = f"""<!DOCTYPE html>
 <html lang="de">
 <head><meta charset="UTF-8"></head>
-<body style="font-family: Arial, Helvetica, sans-serif; color: #1f2937; line-height: 1.5; max-width: 620px; margin: 0 auto; padding: 20px;">
+<body style="font-family: Inter, Arial, Helvetica, sans-serif; color: #1f2937; line-height: 1.5; max-width: 620px; margin: 0 auto; padding: 20px;">
     {_text_zu_html_absaetzen(plain_body)}
 </body>
 </html>
@@ -298,16 +332,27 @@ def sende_test_mail(schluessel: str, empfaenger_email: str) -> str:
 
 
 def _finde_anmelde_template() -> dict | None:
-    kandidaten_schluessel = ("anmeldung_eingang", "anmeldung_bestaetigung", "anmeldung")
+    kandidaten_schluessel = (
+        "anmeldung_eingang",
+        "anmeldebestaetigung",
+        "anmeldung_bestaetigung",
+        "anmeldung",
+    )
     for key in kandidaten_schluessel:
         tpl = hole_mail_template(key)
         if tpl:
             return tpl
 
     for tpl in hole_alle_mail_templates():
-        schluessel = (tpl.get("schluessel") or "").lower()
-        bezeichnung = (tpl.get("bezeichnung") or "").lower()
-        if "anmeldung" in schluessel or "anmeldung" in bezeichnung or "eingangsbestätigung" in bezeichnung:
+        schluessel = (tpl.get("schluessel") or "").strip().lower()
+        bezeichnung = (tpl.get("bezeichnung") or "").strip().lower()
+        if "kuendigung" in schluessel or "kündigung" in bezeichnung:
+            continue
+        if (
+            schluessel.startswith("anmeldung")
+            or "anmeldebestätigung" in bezeichnung
+            or "anmeldung" in bezeichnung
+        ):
             return tpl
 
     return None
@@ -354,7 +399,7 @@ def sende_anmelde_bestaetigung(
             html_body = f"""<!DOCTYPE html>
 <html lang="de">
 <head><meta charset="UTF-8"></head>
-<body style="font-family: Arial, Helvetica, sans-serif; color: #1f2937; line-height: 1.5; max-width: 620px; margin: 0 auto; padding: 20px;">
+<body style="font-family: Inter, Arial, Helvetica, sans-serif; color: #1f2937; line-height: 1.5; max-width: 620px; margin: 0 auto; padding: 20px;">
     {_text_zu_html_absaetzen(plain_body)}
 </body>
 </html>
@@ -431,16 +476,27 @@ def sende_kuendigungs_eingangsbestaetigung(daten: dict) -> bool:
     grund_zeile = daten["grund"].strip() if daten.get("grund") else "Keine Angabe"
 
     dav_hinweis_text = ""
-    if daten["dav_sektion_kuendigen"]:
+    dav_hinweis_html = ""
+    if daten.get("dav_sektion_kuendigen"):
+        dav_datum_de = (daten.get("dav_kuendigungsdatum_de") or "").strip()
+        ziel_hinweis = f" zum {dav_datum_de}" if dav_datum_de else ""
         dav_hinweis_text = (
             "\nHinweis zur DAV-Sektionsmitgliedschaft:\n"
-            "Diese Kündigung gilt ausschließlich für die Jugendgruppe der JDAV Hildesheim und nicht "
-            "für die Mitgliedschaft in der DAV-Sektion Hildesheim. Bitte richte eine Kündigung der "
-            "Sektionsmitgliedschaft bei Bedarf separat schriftlich (z. B. per E-Mail an "
-            "info@dav-hildesheim.de) an die Sektion.\n"
+            f"Du hast angegeben, dass die Mitgliedschaft in der DAV-Sektion Hildesheim ebenfalls{ziel_hinweis} "
+            "gekündigt werden soll. Wir leiten die Zusammenfassung nach Bestätigung der Kündigung an "
+            "unsere Geschäftsstelle weiter.\n"
+        )
+        dav_hinweis_html = (
+            "<div style='margin: 16px 0; padding: 12px 14px; border-left: 4px solid #d97706; background: #fffbeb; color: #78350f;'>"
+            "<strong>Hinweis zur DAV-Sektionsmitgliedschaft:</strong><br>"
+            f"Du hast angegeben, dass die Mitgliedschaft in der DAV-Sektion Hildesheim ebenfalls"
+            f"{f' zum <strong>{html.escape(dav_datum_de)}</strong>' if dav_datum_de else ''} "
+            "gekündigt werden soll. Wir leiten die Zusammenfassung nach Bestätigung der Kündigung an "
+            "unsere Geschäftsstelle weiter."
+            "</div>"
         )
 
-    platzhalter = {
+    platzhalter_plain = {
         "vorgangsnummer": vorgangsnummer,
         "kind_name": kind_name,
         "eb_name": eb_name,
@@ -452,10 +508,17 @@ def sende_kuendigungs_eingangsbestaetigung(daten: dict) -> bool:
         "dav_hinweis": dav_hinweis_text,
     }
 
+    platzhalter_html = {
+        **{k: html.escape(v) for k, v in platzhalter_plain.items()},
+        "dav_hinweis": dav_hinweis_html,
+    }
+
     tpl = hole_mail_template("kuendigung_eingang")
+    custom_html = ""
     if tpl:
-        subject = _ersetze_platzhalter(tpl["betreff"], platzhalter)
-        plain_body = _ersetze_platzhalter(tpl["text_vorlage"], platzhalter)
+        subject = _ersetze_platzhalter(tpl["betreff"], platzhalter_plain)
+        plain_body = _ersetze_platzhalter(tpl["text_vorlage"], platzhalter_plain)
+        custom_html = (tpl.get("html_vorlage") or "").strip()
     else:
         subject = f"Eingang der Kündigung [#{vorgangsnummer}] für {kind_name} zum {kuend_datum_de}"
         plain_body = (
@@ -464,10 +527,13 @@ def sende_kuendigungs_eingangsbestaetigung(daten: dict) -> bool:
             f"{dav_hinweis_text}\nViele Grüße\nDein Team der JDAV Hildesheim"
         )
 
-    html_body = f"""<!DOCTYPE html>
+    if custom_html:
+        html_body = _ersetze_platzhalter(custom_html, platzhalter_html)
+    else:
+        html_body = f"""<!DOCTYPE html>
 <html lang="de">
 <head><meta charset="UTF-8"></head>
-<body style="font-family: Arial, Helvetica, sans-serif; color: #1f2937; line-height: 1.5; max-width: 620px; margin: 0 auto; padding: 20px;">
+<body style="font-family: Inter, Arial, Helvetica, sans-serif; color: #1f2937; line-height: 1.5; max-width: 620px; margin: 0 auto; padding: 20px;">
     {_text_zu_html_absaetzen(plain_body)}
 </body>
 </html>
@@ -477,19 +543,89 @@ def sende_kuendigungs_eingangsbestaetigung(daten: dict) -> bool:
     return True
 
 
+def _sicherstelle_adressbuch_spalten(conn) -> None:
+    cols = {
+        row["name"]
+        for row in conn.execute("PRAGMA table_info(mail_adressbuch);").fetchall()
+    }
+    if "funktion" not in cols:
+        conn.execute("ALTER TABLE mail_adressbuch ADD COLUMN funktion TEXT;")
+        if "bezeichnung" in cols:
+            conn.execute("UPDATE mail_adressbuch SET funktion = bezeichnung WHERE funktion IS NULL;")
+    if "name" not in cols:
+        conn.execute("ALTER TABLE mail_adressbuch ADD COLUMN name TEXT;")
+
+
 def hole_adressbuch_eintraege() -> list:
     with get_kompass() as conn:
+        _sicherstelle_adressbuch_spalten(conn)
         rows = conn.execute(
-            "SELECT id, bezeichnung, email, aktiv FROM mail_adressbuch ORDER BY bezeichnung ASC, id ASC"
+            """
+            SELECT id,
+                   COALESCE(funktion, bezeichnung, '') AS funktion,
+                   COALESCE(name, '') AS name,
+                   email,
+                   aktiv
+            FROM mail_adressbuch
+            ORDER BY COALESCE(funktion, bezeichnung, '') ASC, COALESCE(name, '') ASC, id ASC
+            """
         ).fetchall()
-    return [dict(r) for r in rows]
+    ergebnis = []
+    for r in rows:
+        item = dict(r)
+        item["bezeichnung"] = item["funktion"]
+        ergebnis.append(item)
+    return ergebnis
 
 
-def speichere_adressbuch_eintrag(bezeichnung: str, email: str) -> None:
+def hole_geschaeftsstelle_adressen() -> list[dict]:
+    treffer = []
+    for eintrag in hole_adressbuch_eintraege():
+        if not eintrag.get("aktiv"):
+            continue
+        feld = (eintrag.get("funktion") or eintrag.get("bezeichnung") or "").strip().lower()
+        if "geschäftsstelle" in feld or "geschaeftsstelle" in feld:
+            treffer.append(eintrag)
+    return treffer
+
+
+def speichere_adressbuch_eintrag(
+    funktion: str,
+    email: str,
+    name: str = "",
+) -> None:
+    funktion_clean = (funktion or "").strip()
+    name_clean = (name or "").strip()
+    email_clean = (email or "").strip()
     with get_kompass() as conn:
+        _sicherstelle_adressbuch_spalten(conn)
         conn.execute(
-            "INSERT INTO mail_adressbuch (bezeichnung, email, aktiv) VALUES (?, ?, 1);",
-            (bezeichnung.strip(), email.strip()),
+            """
+            INSERT INTO mail_adressbuch (bezeichnung, funktion, name, email, aktiv)
+            VALUES (?, ?, ?, ?, 1);
+            """,
+            (funktion_clean, funktion_clean, name_clean or None, email_clean),
+        )
+
+
+def aktualisiere_adressbuch_eintrag(
+    eintrag_id: int,
+    funktion: str,
+    email: str,
+    name: str = "",
+) -> None:
+    funktion_clean = (funktion or "").strip()
+    name_clean = (name or "").strip()
+    email_clean = (email or "").strip()
+    with get_kompass() as conn:
+        _sicherstelle_adressbuch_spalten(conn)
+        conn.execute(
+            """
+            UPDATE mail_adressbuch
+            SET bezeichnung = ?, funktion = ?, name = ?, email = ?
+            WHERE id = ?;
+            """,
+            (funktion_clean, funktion_clean, name_clean or None, email_clean, int(eintrag_id)),
         )
 
 
@@ -498,7 +634,83 @@ def loesche_adressbuch_eintrag(eintrag_id: int) -> None:
         conn.execute("DELETE FROM mail_adressbuch WHERE id = ?;", (int(eintrag_id),))
 
 
-def sende_kuendigungsbestaetigung(daten: dict, freitext: str = "") -> bool:
+def sende_dav_kuendigungs_info_an_geschaeftsstelle(daten: dict) -> int:
+    empfaenger = hole_geschaeftsstelle_adressen()
+    if not empfaenger:
+        return 0
+
+    kind_name = (
+        (daten.get("kind_name") or "").strip()
+        or f"{daten.get('mitglied_vorname', '')} {daten.get('mitglied_nachname', '')}".strip()
+    )
+    mitglied_geburtsdatum = (daten.get("mitglied_geburtsdatum_de") or "").strip() or "Nicht hinterlegt"
+    mitgliedsnummer = (daten.get("mitgliedsnummer") or "").strip() or "Nicht hinterlegt"
+    mitglied_anschrift = (daten.get("mitglied_anschrift") or "").strip() or "Nicht hinterlegt"
+
+    eb_name = (
+        (daten.get("eb_name") or "").strip()
+        or f"{daten.get('eb_vorname', '')} {daten.get('eb_nachname', '')}".strip()
+    )
+    eb_email = (daten.get("eb_email") or "").strip()
+    vorgangsnummer = str(daten.get("vorgangsnummer") or daten.get("id") or "").strip()
+    dav_kuend_datum = (daten.get("dav_kuendigungsdatum_de") or "").strip() or "nächstmöglicher Termin"
+    jugend_kuend_datum = (daten.get("kuendigungsdatum_de") or "").strip() or "Nicht angegeben"
+    kuendigungsart_label = (daten.get("kuendigungsart_label") or daten.get("kuendigungsart") or "").strip()
+    grund = (daten.get("grund") or "").strip() or "Keine Angabe"
+    erstellt_am = (daten.get("erstellt_am_de") or daten.get("erstellt_am") or "").strip()
+    bearbeiter = (daten.get("bearbeiter_name") or daten.get("bestaetigt_von") or "").strip()
+
+    prefix = f"[#{vorgangsnummer}] " if vorgangsnummer else ""
+    subject = f"[JDAV Kompass] DAV-Mitgliedschaft kündigen {prefix}– {kind_name} zum {dav_kuend_datum}".strip()
+
+    gesendet = 0
+    for eintrag in empfaenger:
+        addr = (eintrag.get("email") or "").strip()
+        if not addr:
+            continue
+
+        kontakt_name = (eintrag.get("name") or "").strip()
+        anrede = f"Hallo {kontakt_name}," if kontakt_name else "Hallo Team der Geschäftsstelle,"
+
+        zeilen = [
+            anrede,
+            "",
+            "im JDAV Kompass wurde eine Kündigung bestätigt, bei der auch die Mitgliedschaft in der DAV-Sektion Hildesheim gekündigt werden soll:",
+            "",
+            f"- Vorgangsnummer: #{vorgangsnummer}" if vorgangsnummer else "- Vorgangsnummer: -",
+            f"- Mitglied: {kind_name}",
+            f"- Geburtsdatum: {mitglied_geburtsdatum}",
+            f"- Mitgliedsnummer: {mitgliedsnummer}",
+            f"- Anschrift: {mitglied_anschrift}",
+            f"- Erziehungsberechtigte:r: {eb_name} ({eb_email})",
+            f"- Nächstmögliche DAV-Kündigung zum: {dav_kuend_datum}",
+            f"- Kündigung Jugendgruppe zum: {jugend_kuend_datum}" + (f" ({kuendigungsart_label})" if kuendigungsart_label else ""),
+            f"- Grund: {grund}",
+            f"- Eingegangen am: {erstellt_am}" if erstellt_am else "- Eingegangen am: -",
+        ]
+        if bearbeiter:
+            zeilen.append(f"- Bestätigt durch: {bearbeiter}")
+        zeilen.extend(["", "Viele Grüße", "JDAV Kompass"])
+
+        plain_body = "\n".join(zeilen)
+        html_body = f"""<!DOCTYPE html>
+<html lang="de">
+<head><meta charset="UTF-8"></head>
+<body style="font-family: Inter, Arial, Helvetica, sans-serif; color: #1f2937; line-height: 1.5; max-width: 620px; margin: 0 auto; padding: 20px;">
+    {_text_zu_html_absaetzen(plain_body)}
+</body>
+</html>
+"""
+        _sende_mail(addr, subject, plain_body, html_body)
+        gesendet += 1
+    return gesendet
+
+
+def sende_kuendigungsbestaetigung(
+    daten: dict,
+    freitext: str = "",
+    bcc_empfaenger: list[str] | None = None,
+) -> bool:
     kind_name = f"{daten['mitglied_vorname']} {daten['mitglied_nachname']}".strip()
     eb_name = f"{daten['eb_vorname']} {daten['eb_nachname']}".strip()
     kuend_datum_de = daten["kuendigungsdatum_de"]
@@ -516,16 +728,19 @@ def sende_kuendigungsbestaetigung(daten: dict, freitext: str = "") -> bool:
     dav_hinweis_plain = ""
     dav_hinweis_html = ""
     if daten.get("dav_sektion_kuendigen"):
+        dav_datum_de = (daten.get("dav_kuendigungsdatum_de") or "").strip()
         dav_hinweis_plain = (
             "\nHinweis zur DAV-Sektionsmitgliedschaft:\n"
-            "Diese Kündigung gilt ausschließlich für die Jugendgruppe der JDAV Hildesheim und nicht "
-            "für die Mitgliedschaft in der DAV-Sektion Hildesheim.\n"
+            f"Deine Angabe zur Kündigung der Mitgliedschaft in der DAV-Sektion Hildesheim"
+            f"{f' (nächstmöglich zum {dav_datum_de})' if dav_datum_de else ''} "
+            "wurde an unsere Geschäftsstelle weitergeleitet.\n"
         )
         dav_hinweis_html = (
             "<div style='margin: 16px 0; padding: 12px 14px; border-left: 4px solid #d97706; background: #fffbeb; color: #78350f;'>"
             "<strong>Hinweis zur DAV-Sektionsmitgliedschaft:</strong><br>"
-            "Diese Kündigung gilt <strong>ausschließlich für die Jugendgruppe</strong> der JDAV Hildesheim "
-            "und nicht für die Mitgliedschaft in der DAV-Sektion Hildesheim."
+            f"Deine Angabe zur Kündigung der Mitgliedschaft in der DAV-Sektion Hildesheim"
+            f"{f' (nächstmöglich zum <strong>{html.escape(dav_datum_de)}</strong>)' if dav_datum_de else ''} "
+            "wurde an unsere Geschäftsstelle weitergeleitet."
             "</div>"
         )
 
@@ -575,13 +790,13 @@ def sende_kuendigungsbestaetigung(daten: dict, freitext: str = "") -> bool:
         html_body = f"""<!DOCTYPE html>
 <html lang="de">
 <head><meta charset="UTF-8"></head>
-<body style="font-family: Arial, Helvetica, sans-serif; color: #1f2937; line-height: 1.5; max-width: 620px; margin: 0 auto; padding: 20px;">
+<body style="font-family: Inter, Arial, Helvetica, sans-serif; color: #1f2937; line-height: 1.5; max-width: 620px; margin: 0 auto; padding: 20px;">
     {_text_zu_html_absaetzen(plain_body)}
 </body>
 </html>
 """
 
-    _sende_mail(daten["eb_email"], subject, plain_body, html_body)
+    _sende_mail(daten["eb_email"], subject, plain_body, html_body, bcc_addrs=bcc_empfaenger)
     return True
 
 
@@ -589,38 +804,46 @@ def sende_interne_kuendigungs_info(empfaenger_liste: list[dict], daten: dict, fr
     if not empfaenger_liste:
         return 0
 
-    kind_name = f"{daten['mitglied_vorname']} {daten['mitglied_nachname']}".strip()
-    eb_name = f"{daten['eb_vorname']} {daten['eb_nachname']}".strip()
-    vorgangsnummer = daten.get("vorgangsnummer") or str(daten.get("id", ""))
-    kuend_datum_de = daten["kuendigungsdatum_de"]
-    freitext_clean = (freitext or "").strip()
+    bcc_adressen = []
+    for eintrag in empfaenger_liste:
+        addr = (eintrag.get("email") or "").strip()
+        if addr and addr.lower() not in {a.lower() for a in bcc_adressen}:
+            bcc_adressen.append(addr)
 
-    subject = f"[JDAV Kompass] Kündigung bestätigt (#{vorgangsnummer}): {kind_name} zum {kuend_datum_de}"
+    if not bcc_adressen:
+        return 0
+
+    cfg = hole_mail_konfiguration()
+    to_ziel = hole_jugend_verwaltung_reply_to() or cfg["smtp_username"]
+
+    kind_name = f"{daten.get('mitglied_vorname', '')} {daten.get('mitglied_nachname', '')}".strip()
+    eb_name = f"{daten.get('eb_vorname', '')} {daten.get('eb_nachname', '')}".strip()
+    vorgangsnummer = daten.get("vorgangsnummer") or str(daten.get("id", ""))
+    kuend_datum_de = daten.get("kuendigungsdatum_de") or ""
+    freitext_clean = (freitext or "").strip()
+    dav_datum_de = (daten.get("dav_kuendigungsdatum_de") or "").strip()
+
+    subject = f"[JDAV Kompass] Kündigung bestätigt (#{vorgangsnummer}): {kind_name} zum {kuend_datum_de}".strip()
     plain_body = (
         f"Hallo,\n\n"
-        f"folgende Kündigung wurde im JDAV Kompass bestätigt und am Mitglied vermerkt:\n\n"
+        f"folgende Kündigung wurde im JDAV Kompass vermerkt:\n\n"
         f"- Vorgangsnummer: #{vorgangsnummer}\n"
         f"- Mitglied: {kind_name}\n"
-        f"- Erziehungsberechtigte:r: {eb_name} ({daten['eb_email']})\n"
+        f"- Erziehungsberechtigte:r: {eb_name} ({daten.get('eb_email', '')})\n"
         f"- Kündigungsdatum: {kuend_datum_de} ({daten.get('kuendigungsart_label') or daten.get('kuendigungsart', '')})\n"
-        f"- Gesonderte Kündigung DAV-Sektion angegeben: {'Ja' if daten.get('dav_sektion_kuendigen') else 'Nein'}\n"
+        f"- Gesonderte Kündigung DAV-Sektion angegeben: {'Ja' + (f' (zum {dav_datum_de})' if dav_datum_de else '') if daten.get('dav_sektion_kuendigen') else 'Nein'}\n"
         f"- Grund: {daten.get('grund') or 'Keine Angabe'}\n"
-        f"{f'- Ergänzender Hinweis an Eltern: {freitext_clean}\n' if freitext_clean else ''}\n"
+        f"{f'- Ergänzender Hinweis: {freitext_clean}\n' if freitext_clean else ''}\n"
         f"Viele Grüße\nJDAV Kompass"
     )
     html_body = f"""<!DOCTYPE html>
 <html lang="de">
 <head><meta charset="UTF-8"></head>
-<body style="font-family: Arial, Helvetica, sans-serif; color: #1f2937; line-height: 1.5; max-width: 620px; margin: 0 auto; padding: 20px;">
+<body style="font-family: Inter, Arial, Helvetica, sans-serif; color: #1f2937; line-height: 1.5; max-width: 620px; margin: 0 auto; padding: 20px;">
     {_text_zu_html_absaetzen(plain_body)}
 </body>
 </html>
 """
 
-    gesendet = 0
-    for eintrag in empfaenger_liste:
-        addr = (eintrag.get("email") or "").strip()
-        if addr:
-            _sende_mail(addr, subject, plain_body, html_body)
-            gesendet += 1
-    return gesendet
+    _sende_mail(to_ziel, subject, plain_body, html_body, bcc_addrs=bcc_adressen)
+    return len(bcc_adressen)

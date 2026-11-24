@@ -4,6 +4,10 @@ from datetime import date, datetime, timedelta
 from flask import Blueprint, flash, render_template, request
 
 from app.models import get_kompass
+from app.services.kuendigung_service import (
+    _sicherstelle_dav_spalte,
+    berechne_naechstmoegliche_dav_kuendigung,
+)
 from app.services.mail_service import sende_kuendigungs_eingangsbestaetigung
 from extensions import limiter
 
@@ -68,6 +72,8 @@ def berechne_kuendigungsoptionen(heute: date | None = None) -> dict:
         else:
             cur_month += 1
 
+    dav_datum, dav_datum_de = berechne_naechstmoegliche_dav_kuendigung(heute)
+
     return {
         "heute": heute,
         "fruehestmoeglich": fruehestmoeglich,
@@ -77,6 +83,9 @@ def berechne_kuendigungsoptionen(heute: date | None = None) -> dict:
         "quartalsende_iso": quartalsende.isoformat(),
         "quartalsende_de": quartalsende.strftime("%d.%m.%Y"),
         "monatsenden": monatsenden,
+        "dav_naechste_kuendigung": dav_datum,
+        "dav_naechste_kuendigung_iso": dav_datum.isoformat(),
+        "dav_naechste_kuendigung_de": dav_datum_de,
     }
 
 
@@ -95,8 +104,8 @@ def kuendigung():
         kuendigungsart = request.form.get("kuendigungsart", "fruehestmoeglich").strip()
         eigenes_datum_str = request.form.get("eigenes_datum", "").strip()
 
-        dav_sektion_kuendigen = request.form.get("dav_sektion_kuendigen") == "on"
-        dav_hinweis_bestaetigt = request.form.get("dav_hinweis_bestaetigt") == "on"
+        dav_auswahl = (request.form.get("dav_sektion_kuendigen") or "nein").strip().lower()
+        dav_sektion_kuendigen = dav_auswahl in ("ja", "on", "1", "true")
         grund = request.form.get("grund", "").strip()
 
         datenschutz_bestaetigt = request.form.get("datenschutz_bestaetigt") == "on"
@@ -108,8 +117,6 @@ def kuendigung():
             fehler.append("Bitte fülle alle Pflichtfelder zum Kind, zu den Erziehungsberechtigten und zur E-Mail aus.")
         if not datenschutz_bestaetigt or not richtigkeit_bestaetigt:
             fehler.append("Bitte bestätige den Datenschutz sowie die Richtigkeit der Angaben.")
-        if dav_sektion_kuendigen and not dav_hinweis_bestaetigt:
-            fehler.append("Bitte bestätige den Hinweis zur gesonderten Kündigung der DAV-Sektionsmitgliedschaft.")
         if not unterschrift or not unterschrift.startswith("data:image/"):
             fehler.append("Bitte leiste eine gültige Unterschrift im Unterschriftenfeld.")
 
@@ -153,8 +160,15 @@ def kuendigung():
         kuendigungsdatum_iso = kuendigungsdatum.isoformat()
         kuendigungsdatum_de = kuendigungsdatum.strftime("%d.%m.%Y")
         erstellt_am_de = erstellt_am.strftime("%d.%m.%Y %H:%M")
+        dav_kuendigungsdatum_iso = (
+            optionen["dav_naechste_kuendigung_iso"] if dav_sektion_kuendigen else None
+        )
+        dav_kuendigungsdatum_de = (
+            optionen["dav_naechste_kuendigung_de"] if dav_sektion_kuendigen else ""
+        )
 
         with get_kompass() as conn:
+            _sicherstelle_dav_spalte(conn)
             vorgangsnummer = generiere_vorgangsnummer(conn, erstellt_am)
             cursor = conn.execute(
                 """
@@ -169,13 +183,14 @@ def kuendigung():
                     kuendigungsart,
                     kuendigungsdatum,
                     dav_sektion_kuendigen,
+                    dav_kuendigungsdatum,
                     grund,
                     datenschutz_bestaetigt,
                     richtigkeit_bestaetigt,
                     unterschrift,
                     status,
                     eingangsbestaetigung_gesendet
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'eingegangen', 0)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'eingegangen', 0)
                 """,
                 (
                     vorgangsnummer,
@@ -188,6 +203,7 @@ def kuendigung():
                     kuendigungsart,
                     kuendigungsdatum_iso,
                     1 if dav_sektion_kuendigen else 0,
+                    dav_kuendigungsdatum_iso,
                     grund or None,
                     1 if datenschutz_bestaetigt else 0,
                     1 if richtigkeit_bestaetigt else 0,
@@ -209,6 +225,7 @@ def kuendigung():
                 "kuendigungsart_label": kuendigungsart_label,
                 "kuendigungsdatum_de": kuendigungsdatum_de,
                 "dav_sektion_kuendigen": dav_sektion_kuendigen,
+                "dav_kuendigungsdatum_de": dav_kuendigungsdatum_de,
                 "grund": grund,
             }
 

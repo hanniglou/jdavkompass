@@ -34,6 +34,7 @@ from app.services.gruppe_service import baue_anwesenheits_excel
 from app.services.gruppen_service import loesche_gruppe, neue_gruppe_erstellen
 from app.services.mail_service import (
     SYSTEM_TEMPLATE_SCHLUESSEL,
+    aktualisiere_adressbuch_eintrag,
     erstelle_mail_template,
     hole_adressbuch_eintraege,
     hole_alle_mail_templates,
@@ -348,14 +349,42 @@ def admin_email():
             return redirect(url_for("admin.admin_email", tpl=test_schluessel or aktiver_schluessel))
 
         elif form_typ == "adressbuch_add":
-            bezeichnung = request.form.get("bezeichnung", "").strip()
+            funktion = (request.form.get("funktion") or request.form.get("bezeichnung") or "").strip()
+            kontakt_name = request.form.get("name", "").strip()
             email_adresse = request.form.get("email", "").strip()
-            if bezeichnung and email_adresse:
-                speichere_adressbuch_eintrag(bezeichnung, email_adresse)
-                log_aenderung("Adressbuch-Eintrag hinzugefügt", f"{bezeichnung} ({email_adresse})")
+            if funktion and email_adresse:
+                speichere_adressbuch_eintrag(funktion=funktion, email=email_adresse, name=kontakt_name)
+                log_aenderung(
+                    "Adressbuch-Eintrag hinzugefügt",
+                    f"{funktion} – {kontakt_name} ({email_adresse})" if kontakt_name else f"{funktion} ({email_adresse})",
+                )
                 flash("Adressbuch-Eintrag wurde hinzugefügt.", "success")
             else:
-                flash("Bitte sowohl eine Bezeichnung als auch eine E-Mail-Adresse angeben.", "error")
+                flash("Bitte sowohl eine Funktion als auch eine E-Mail-Adresse angeben.", "error")
+
+        elif form_typ == "adressbuch_edit":
+            eintrag_id_raw = request.form.get("eintrag_id", "").strip()
+            funktion = (request.form.get("funktion") or request.form.get("bezeichnung") or "").strip()
+            kontakt_name = request.form.get("name", "").strip()
+            email_adresse = request.form.get("email", "").strip()
+            try:
+                eintrag_id = int(eintrag_id_raw)
+                if not funktion or not email_adresse:
+                    flash("Bitte sowohl eine Funktion als auch eine E-Mail-Adresse angeben.", "error")
+                else:
+                    aktualisiere_adressbuch_eintrag(
+                        eintrag_id=eintrag_id,
+                        funktion=funktion,
+                        email=email_adresse,
+                        name=kontakt_name,
+                    )
+                    log_aenderung(
+                        "Adressbuch-Eintrag bearbeitet",
+                        f"{funktion} – {kontakt_name} ({email_adresse})" if kontakt_name else f"{funktion} ({email_adresse})",
+                    )
+                    flash("Adressbuch-Eintrag wurde aktualisiert.", "success")
+            except (TypeError, ValueError):
+                flash("Ungültiger Adressbuch-Eintrag.", "error")
 
         elif form_typ == "adressbuch_delete":
             eintrag_id_raw = request.form.get("eintrag_id", "").strip()
