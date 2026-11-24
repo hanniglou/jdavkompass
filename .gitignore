@@ -1,11 +1,15 @@
 .env
 __pycache__/
 *.pyc
+*.pyo
 venv/
+.venv/
 .env/
 .vscode/
 .idea/
 logs/
 app/db/*.db
+*.sqlite
+*.sqlite3
 *.log
 .pylintrc
