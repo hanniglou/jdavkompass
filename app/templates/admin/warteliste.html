@@ -1,0 +1,604 @@
+{% extends "base_intern.html" %}
+
+{% block title %}Admin Panel – Warteliste – JDAV Hildesheim{% endblock %}
+
+{% block content %}
+<section class="page-section">
+    <h1>Admin Panel – Warteliste</h1>
+    {% include "admin/_nav.html" %}
+
+    {% set gruppe_ausgewaehlt = request.args.get('gruppe_id', '')|trim != '' %}
+    {% set aktive_eintraege = eintraege | rejectattr('bestaetigungs_status', 'equalto', 'abgemeldet') | list %}
+    {% set archiv_eintraege = eintraege | selectattr('bestaetigungs_status', 'equalto', 'abgemeldet') | list %}
+    {% set naechstes_kind = schnupper_kandidaten[0] if schnupper_kandidaten else none %}
+
+    {% set ns = namespace(importiert=0, bestaetigt=0) %}
+    {% for item in eintraege %}
+        {% if item.quelle == 'csv_import' or item.aus_alter_warteliste_uebernommen %}
+            {% set ns.importiert = ns.importiert + 1 %}
+            {% if item.bestaetigungs_status == 'bestaetigt' %}
+                {% set ns.bestaetigt = ns.bestaetigt + 1 %}
+            {% endif %}
+        {% endif %}
+    {% endfor %}
+
+    {# EINKLAPPBARE GRUPPEN-WARTELISTEN-ÜBERSICHT #}
+    <details id="wl-gruppen-uebersicht-details" class="table-container" open>
+        <summary class="toggle-summary toggle-summary--spaced">
+            <span class="toggle-heading-wrap">
+                <span>Gruppen-Wartelisten</span>
+                <span class="toggle-chevron" aria-hidden="true">▾</span>
+            </span>
+        </summary>
+
+        <div id="wl-gruppen-menue" class="wl-mini-nav-liste"{% if gruppe_ausgewaehlt %} style="display: none;"{% endif %}>
+            {% if gruppen %}
+                {% for g in gruppen %}
+                    {% set max_tn = g.max_teilnehmer if g.max_teilnehmer is defined and g.max_teilnehmer else 12 %}
+                    {% set belegung_aktuell = g.aktuell if g.aktuell is defined and g.aktuell is not none else 0 %}
+                    {% set belegung_quartal = g.quartalsende if g.quartalsende is defined and g.quartalsende is not none else 0 %}
+                    {% set frei_jetzt = g.frei_aktuell if g.frei_aktuell is defined and g.frei_aktuell is not none else (max_tn - belegung_aktuell) %}
+                    {% set frei_quartal = g.frei_quartalsende if g.frei_quartalsende is defined and g.frei_quartalsende is not none else (max_tn - belegung_quartal) %}
+                    {% set hat_freien_platz = (frei_jetzt|int > 0) or (frei_quartal|int > 0) %}
+
+                    <div class="wl-mini-nav-box{% if hat_freien_platz %} wl-mini-nav-box--frei{% endif %}">
+                        <div class="wl-mini-nav-main">
+                            <div class="wl-mini-nav-top">
+                                <a href="{{ url_for('gruppe.gruppe', gruppe_id=g.id) }}" class="mitglied-link">
+                                    <strong>{{ g.name }}</strong>
+                                </a>
+                                <span class="wl-mini-nav-meta">
+                                    {{ g.gruppenart }} · {{ g.wochentag }}, {{ g.startzeit }}–{{ g.endzeit }}
+                                </span>
+                                {% if hat_freien_platz %}
+                                    <span class="wl-mini-nav-badge-frei">Platz frei / bald frei</span>
+                                {% endif %}
+                            </div>
+                            <div class="wl-mini-nav-belegung">
+                                <span class="wl-mini-nav-chip">
+                                    Aktuell: <strong>{{ belegung_aktuell }}/{{ max_tn }}</strong>
+                                </span>
+                                <span class="wl-mini-nav-chip">
+                                    Quartalsende: <strong>{{ belegung_quartal }}/{{ max_tn }}</strong>
+                                </span>
+                            </div>
+                        </div>
+                        <div class="wl-mini-nav-actions">
+                            <a href="?gruppe_id={{ g.id }}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if quelle_filter %}&quelle={{ quelle_filter }}{% endif %}{% if suchbegriff %}&q={{ suchbegriff }}{% endif %}"
+                               class="btn-kompass btn-kompass--secondary-light wl-open-gruppe-btn"
+                               data-gruppe-id="{{ g.id }}">
+                                Gruppenwarteliste
+                            </a>
+                            <a href="{{ url_for('gruppe.gruppe', gruppe_id=g.id) }}" class="btn-kompass btn-kompass--success-light">
+                                Gruppe öffnen
+                            </a>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div class="alert alert-info no-margin">
+                    Keine Jugendgruppen vorhanden.
+                </div>
+            {% endif %}
+        </div>
+
+        {# 1. GRUPPENSPEZIFISCHE WARTELISTE & SCHNUPPER-EINLADUNG #}
+        <details id="gruppen-warteliste-details" class="table-container"{% if gruppe_ausgewaehlt %} open{% else %} style="display: none;"{% endif %}>
+            <summary class="toggle-summary toggle-summary--spaced">
+                <span class="toggle-heading-wrap">
+                    <span>Gruppen-Warteliste{% if gewaehlte_gruppe %} – {{ gewaehlte_gruppe.name }}{% endif %}</span>
+                    <span class="toggle-chevron" aria-hidden="true">▾</span>
+                </span>
+                <div class="table-search-box" onclick="event.stopPropagation();">
+                    <button type="button" id="wl-alle-gruppen-btn" class="btn-kompass btn-kompass--secondary-light">
+                        Alle Gruppen anzeigen
+                    </button>
+                </div>
+            </summary>
+
+            {% if gewaehlte_gruppe and gruppen_belegung %}
+                <p class="section-hint section-hint--compact">
+                    <strong>{{ gewaehlte_gruppe.name }}</strong> · {{ gewaehlte_gruppe.gruppenart }} ·
+                    {{ gewaehlte_gruppe.wochentag }}, {{ gewaehlte_gruppe.startzeit }}–{{ gewaehlte_gruppe.endzeit }}
+                    {% if gewaehlte_gruppe.jahrgang %}
+                        {% set alter_mitte = 2026 - gewaehlte_gruppe.jahrgang %}
+                        {% set alter_min = (alter_mitte - 1) if (alter_mitte - 1) > 0 else 1 %}
+                        {% set alter_max = (alter_mitte + 1) if (alter_mitte + 1) > 1 else 1 %}
+                        · Ziel-Jahrgang {{ gewaehlte_gruppe.jahrgang }} (ca. {{ alter_min }}–{{ alter_max }} Jahre)
+                    {% endif %}
+                </p>
+
+                <div class="wl-belegung-grid">
+                    <div class="wl-belegung-box">
+                        <span class="wl-belegung-wert">{{ gruppen_belegung.aktuell }} / {{ gruppen_belegung.max_teilnehmer }}</span>
+                        <span class="wl-belegung-label">Aktuell belegt ({{ gruppen_belegung.frei_aktuell }} frei)</span>
+                    </div>
+                    <div class="wl-belegung-box wl-belegung-box--highlight">
+                        <span class="wl-belegung-wert">{{ gruppen_belegung.frei_quartalsende }}</span>
+                        <span class="wl-belegung-label">Frei zum Quartalsende (Belegung: {{ gruppen_belegung.quartalsende }})</span>
+                    </div>
+                    <div class="wl-belegung-box">
+                        <span class="wl-belegung-wert">{{ passende_kinder|length }}</span>
+                        <span class="wl-belegung-label">Passende bestätigte Kinder</span>
+                    </div>
+                </div>
+
+                {% if naechstes_kind %}
+                    <div class="wl-naechstes-kind-card">
+                        <div>
+                            <h3 class="wl-naechstes-kind-titel">
+                                Nächstes Kind auf der Warteliste: {{ naechstes_kind.vorname }} {{ naechstes_kind.nachname }}
+                            </h3>
+                            <div class="wl-naechstes-kind-meta">
+                                Geb. {{ naechstes_kind.geburtsdatum_de }} · Eingetragen am {{ naechstes_kind.erstellt_am_de }} ·
+                                Kontakt: {{ naechstes_kind.kontakt_name or '–' }} ({{ naechstes_kind.email }})
+                                {% if naechstes_kind.schnupper_eingeladen_am_de %}
+                                    · <strong>Bereits eingeladen am {{ naechstes_kind.schnupper_eingeladen_am_de }}</strong>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <form method="POST" class="no-margin">
+                            <input type="hidden" name="action" value="send_schnupper">
+                            <input type="hidden" name="eintrag_id" value="{{ naechstes_kind.id }}">
+                            <input type="hidden" name="gruppe_id" value="{{ gewaehlte_gruppe.id }}">
+                            <button type="submit" class="btn-kompass btn-kompass--success">
+                                Zum Schnuppern einladen
+                            </button>
+                        </form>
+                    </div>
+                {% endif %}
+
+                {% if schnupper_kandidaten %}
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Platz</th>
+                                <th>Vorname</th>
+                                <th>Nachname</th>
+                                <th>Geburtsdatum</th>
+                                <th>Eingetragen am</th>
+                                <th>Kontaktperson</th>
+                                <th>Schnupper-Status</th>
+                                <th>Aktion</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for k in schnupper_kandidaten %}
+                                <tr class="wl-row" data-wl-id="schnupper-{{ k.id }}">
+                                    <td>{{ loop.index }}.</td>
+                                    <td>{{ k.vorname }}</td>
+                                    <td>{{ k.nachname }}</td>
+                                    <td>{{ k.geburtsdatum_de }}</td>
+                                    <td>{{ k.erstellt_am_de }}</td>
+                                    <td>{{ k.kontakt_name or '–' }} ({{ k.email }})</td>
+                                    <td>
+                                        {% if k.schnupper_eingeladen_am_de %}
+                                            Eingeladen am {{ k.schnupper_eingeladen_am_de }}
+                                        {% else %}
+                                            Offen
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <form method="POST" class="no-margin">
+                                            <input type="hidden" name="action" value="send_schnupper">
+                                            <input type="hidden" name="eintrag_id" value="{{ k.id }}">
+                                            <input type="hidden" name="gruppe_id" value="{{ gewaehlte_gruppe.id }}">
+                                            <button type="submit" class="btn-kompass {% if loop.first %}btn-kompass--success{% else %}btn-kompass--secondary-light{% endif %}">
+                                                Zum Schnuppern einladen
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                {% else %}
+                    <div class="alert alert-info no-margin">
+                        Aktuell keine passenden bestätigten Kinder für diese Gruppe vorgemerkt.
+                    </div>
+                {% endif %}
+
+                {% if passende_kinder|length > 3 %}
+                    <details class="wl-subdetails">
+                        <summary class="section-hint wl-subdetails-summary">
+                            Alle passenden bestätigten Kinder für {{ gewaehlte_gruppe.name }} anzeigen ({{ passende_kinder|length }})
+                        </summary>
+                        <table class="table wl-subtable">
+                            <thead>
+                                <tr>
+                                    <th>Platz</th>
+                                    <th>Vorname</th>
+                                    <th>Nachname</th>
+                                    <th>Geburtsdatum</th>
+                                    <th>Eingetragen am</th>
+                                    <th>Kontakt</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for k in passende_kinder %}
+                                    <tr class="wl-row" data-wl-id="passend-{{ k.id }}">
+                                        <td>{{ loop.index }}.</td>
+                                        <td>{{ k.vorname }}</td>
+                                        <td>{{ k.nachname }}</td>
+                                        <td>{{ k.geburtsdatum_de }}</td>
+                                        <td>{{ k.erstellt_am_de }}</td>
+                                        <td>{{ k.kontakt_name or '–' }} ({{ k.email }})</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </details>
+                {% endif %}
+            {% else %}
+                <div class="alert alert-info no-margin">
+                    Keine Jugendgruppen vorhanden.
+                </div>
+            {% endif %}
+        </details>
+    </details>
+
+    {# 2. GESAMTÜBERSICHT AKTIVE / BESTÄTIGTE WARTELISTE #}
+    <details id="aktive-warteliste-details" class="table-container archiv-section" open>
+        <summary class="toggle-summary toggle-summary--spaced">
+            <span class="toggle-heading-wrap">
+                <span>Gesamtübersicht Warteliste ({{ aktive_eintraege|length }})</span>
+                <span class="toggle-chevron" aria-hidden="true">▾</span>
+            </span>
+            <div class="table-search-box" onclick="event.stopPropagation();">
+                <label for="warteliste-suche" class="table-search-label">Suche:</label>
+                <input
+                    type="search"
+                    id="warteliste-suche"
+                    class="table-search-input"
+                    placeholder="Name, Geburtsdatum, Kontakt, Status..."
+                    value="{{ suchbegriff }}"
+                >
+            </div>
+        </summary>
+
+        <p class="section-hint section-hint--compact">
+            <strong>{{ ns.importiert }}</strong> aus alter Warteliste importiert. <strong>{{ ns.bestaetigt }}</strong> davon bestätigt.
+        </p>
+
+        <div class="wl-toolbar-row">
+            <form method="GET" class="wl-filter-form">
+                {% if gewaehlte_gruppe and gruppe_ausgewaehlt %}<input type="hidden" name="gruppe_id" value="{{ gewaehlte_gruppe.id }}">{% endif %}
+                <select name="status" class="table-search-input" onchange="this.form.submit()">
+                    <option value="bestaetigt" {% if status_filter == "bestaetigt" %}selected{% endif %}>Nur bestätigte (Standard)</option>
+                    <option value="alle" {% if status_filter == "alle" %}selected{% endif %}>Alle Status</option>
+                </select>
+                <select name="quelle" class="table-search-input" onchange="this.form.submit()">
+                    <option value="">Alle Quellen</option>
+                    <option value="csv_import" {% if quelle_filter == "csv_import" %}selected{% endif %}>Alt-Liste (CSV)</option>
+                    <option value="formular" {% if quelle_filter == "formular" %}selected{% endif %}>Neues Formular</option>
+                </select>
+            </form>
+        </div>
+
+        {% if aktive_eintraege %}
+        <table id="warteliste-tabelle" class="table">
+            <thead>
+                <tr>
+                    <th>Vorname</th>
+                    <th>Nachname</th>
+                    <th>Geburtsdatum</th>
+                    <th>Eingetragen am</th>
+                    <th>Status</th>
+                    <th>Interesse / Erfahrung</th>
+                    <th>Für Gruppen</th>
+                    <th>Kontaktperson</th>
+                    <th>Aktion</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for e in aktive_eintraege %}
+                <tr class="wl-row" data-wl-id="{{ e.id }}">
+                    <td>{{ e.vorname }}</td>
+                    <td>{{ e.nachname }}</td>
+                    <td>{{ e.geburtsdatum_de }}</td>
+                    <td>{{ e.erstellt_am_de }}</td>
+                    <td>
+                        {{ e.bestaetigungs_status }}
+                        {% if e.quelle == 'csv_import' or e.aus_alter_warteliste_uebernommen %}<br><small>Alt-Liste</small>{% endif %}
+                    </td>
+                    <td>
+                        {{ e.interesse or '–' }}
+                        {% if e.erfahrung %}<br><small>Erfahrung: {{ e.erfahrung }}</small>{% endif %}
+                    </td>
+                    <td>
+                        {% if e.passende_gruppen is defined and e.passende_gruppen %}
+                            {% if e.passende_gruppen is string %}
+                                {{ e.passende_gruppen }}
+                            {% else %}
+                                {{ e.passende_gruppen | join(', ') }}
+                            {% endif %}
+                        {% else %}
+                            –
+                        {% endif %}
+                    </td>
+                    <td>
+                        {{ e.kontakt_name or '–' }}
+                        {% if e.email %}<br>{{ e.email }}{% endif %}
+                        {% if e.telefon %}<br>{{ e.telefon }}{% endif %}
+                    </td>
+                    <td>
+                        <div class="form-actions--row wl-row-actions">
+                            <form method="POST" class="no-margin">
+                                <input type="hidden" name="action" value="set_status">
+                                <input type="hidden" name="eintrag_id" value="{{ e.id }}">
+                                <input type="hidden" name="neuer_status" value="abgemeldet">
+                                {% if gewaehlte_gruppe and gruppe_ausgewaehlt %}<input type="hidden" name="gruppe_id" value="{{ gewaehlte_gruppe.id }}">{% endif %}
+                                <button
+                                    type="submit"
+                                    class="btn-kompass btn-kompass--danger-light"
+                                    onclick="return confirm('Möchtest du {{ e.vorname }} {{ e.nachname }} wirklich von der Warteliste entfernen?');"
+                                >
+                                    entfernen
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% set hinweise = [] %}
+                {% if e.schnupper_eingeladen_am_de %}{% set _ = hinweise.append('Zum Schnuppern eingeladen am ' ~ e.schnupper_eingeladen_am_de) %}{% endif %}
+                {% if hinweise %}
+                <tr class="kuendigung-hinweis-row" data-for-wl="{{ e.id }}">
+                    <td colspan="9" class="kuendigung-hinweis-cell">
+                        {{ hinweise | join(' · ') }}
+                    </td>
+                </tr>
+                {% endif %}
+                {% endfor %}
+            </tbody>
+        </table>
+        <p id="keine-wl-suchtreffer" class="no-results-msg">
+            Keine passenden Wartelisteneinträge für den Suchbegriff gefunden.
+        </p>
+        {% else %}
+        <div class="alert alert-info no-margin">
+            Keine bestätigten Wartelisteneinträge vorhanden.
+        </div>
+        {% endif %}
+    </details>
+
+    {# 3. ABGEMELDETE / AUSGETRAGENE EINTRÄGE #}
+    <details id="archiv-warteliste-details" class="table-container archiv-section">
+        <summary class="toggle-summary">
+            <span class="toggle-heading-wrap">
+                <span>Abgemeldete Einträge ({{ archiv_eintraege|length }})</span>
+                <span class="toggle-chevron" aria-hidden="true">▾</span>
+            </span>
+            <div class="table-search-box" onclick="event.stopPropagation();">
+                <label for="archiv-wl-suche" class="table-search-label">Suche:</label>
+                <input
+                    type="search"
+                    id="archiv-wl-suche"
+                    class="table-search-input"
+                    placeholder="Name, Geburtsdatum, Kontakt..."
+                >
+            </div>
+        </summary>
+        <p class="section-hint section-hint--compact">
+            Hier erscheinen abgemeldete oder ausgetragene Wartelisteneinträge.
+        </p>
+
+        {% if archiv_eintraege %}
+        <table id="archiv-wl-tabelle" class="table">
+            <thead>
+                <tr>
+                    <th>Vorname</th>
+                    <th>Nachname</th>
+                    <th>Geburtsdatum</th>
+                    <th>Eingetragen am</th>
+                    <th>Kontaktperson</th>
+                    <th>Aktion</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for e in archiv_eintraege %}
+                <tr class="wl-row archiv-row" data-wl-id="{{ e.id }}">
+                    <td>{{ e.vorname }}</td>
+                    <td>{{ e.nachname }}</td>
+                    <td>{{ e.geburtsdatum_de }}</td>
+                    <td>{{ e.erstellt_am_de }}</td>
+                    <td>{{ e.kontakt_name or '–' }}{% if e.email %} ({{ e.email }}){% endif %}</td>
+                    <td>
+                        <form method="POST" class="no-margin">
+                            <input type="hidden" name="action" value="set_status">
+                            <input type="hidden" name="eintrag_id" value="{{ e.id }}">
+                            <input type="hidden" name="neuer_status" value="bestaetigt">
+                            <button type="submit" class="btn-kompass btn-kompass--secondary">
+                                Reaktivieren
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <p id="keine-archiv-wl-suchtreffer" class="no-results-msg">
+            Keine passenden abgemeldeten Einträge für den Suchbegriff gefunden.
+        </p>
+        {% else %}
+        <div class="alert alert-info no-margin">
+            Aktuell befinden sich keine abgemeldeten Einträge im Archiv.
+        </div>
+        {% endif %}
+    </details>
+</section>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const gruppenMenue = document.getElementById("wl-gruppen-menue");
+    const gruppenDetails = document.getElementById("gruppen-warteliste-details");
+    const alleGruppenBtn = document.getElementById("wl-alle-gruppen-btn");
+
+    if (alleGruppenBtn && gruppenMenue && gruppenDetails) {
+        alleGruppenBtn.addEventListener("click", function () {
+            gruppenDetails.style.display = "none";
+            gruppenMenue.style.display = "flex";
+            const url = new URL(window.location.href);
+            url.searchParams.delete("gruppe_id");
+            window.history.replaceState({}, "", url.toString());
+        });
+    }
+
+    const wlSearchInput = document.getElementById("warteliste-suche");
+    const archiveSearchInput = document.getElementById("archiv-wl-suche");
+    const mainDetails = document.getElementById("aktive-warteliste-details");
+    const archiveDetails = document.getElementById("archiv-warteliste-details");
+    const noWlResultsMsg = document.getElementById("keine-wl-suchtreffer");
+    const noArchiveResultsMsg = document.getElementById("keine-archiv-wl-suchtreffer");
+    const wlTable = document.getElementById("warteliste-tabelle");
+    const archiveTable = document.getElementById("archiv-wl-tabelle");
+    const allTables = Array.from(document.querySelectorAll(".table"));
+    if (!allTables.length) return;
+
+    function filterTable(table, searchInput, detailsEl, noResultsEl, autoOpen) {
+        if (!table) return;
+        const tbody = table.querySelector("tbody");
+        if (!tbody) return;
+
+        const term = searchInput ? searchInput.value.trim().toLowerCase() : "";
+        if (autoOpen && term && detailsEl && !detailsEl.open) {
+            detailsEl.open = true;
+        }
+
+        let visibleRows = 0;
+        const rows = tbody.querySelectorAll("tr.wl-row");
+
+        rows.forEach(row => {
+            const wid = row.dataset.wlId;
+            const hintRow = wid ? tbody.querySelector(`tr.kuendigung-hinweis-row[data-for-wl="${wid}"]`) : null;
+            const combinedText = (row.textContent + " " + (hintRow ? hintRow.textContent : "")).toLowerCase();
+            const matches = !term || combinedText.includes(term);
+
+            row.style.display = matches ? "" : "none";
+            if (hintRow) {
+                hintRow.style.display = matches ? "" : "none";
+            }
+            if (matches) {
+                visibleRows += 1;
+            }
+        });
+
+        if (noResultsEl) {
+            noResultsEl.style.display = (term && visibleRows === 0) ? "block" : "none";
+        }
+    }
+
+    function applyWlFilter() {
+        filterTable(wlTable, wlSearchInput, mainDetails, noWlResultsMsg, true);
+    }
+
+    function applyArchiveFilter() {
+        filterTable(archiveTable, archiveSearchInput, archiveDetails, noArchiveResultsMsg, true);
+    }
+
+    if (wlSearchInput) {
+        wlSearchInput.addEventListener("input", applyWlFilter);
+        if (wlSearchInput.value.trim()) applyWlFilter();
+    }
+    if (archiveSearchInput) {
+        archiveSearchInput.addEventListener("input", applyArchiveFilter);
+    }
+
+    allTables.forEach(table => {
+        const headers = table.querySelectorAll("thead th");
+        const tbody = table.querySelector("tbody");
+        if (!tbody) return;
+
+        function parseCellValue(text) {
+            const clean = text.trim();
+            if (!clean || clean === "-" || clean === "–") return "";
+
+            const deDate = clean.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+            if (deDate) {
+                return `${deDate[3]}-${deDate[2]}-${deDate[1]}`;
+            }
+
+            const rankNum = clean.match(/^(\d+)\.$/);
+            if (rankNum) {
+                return parseFloat(rankNum[1]);
+            }
+
+            if (/^\d+(\.\d+)?$/.test(clean)) {
+                return parseFloat(clean);
+            }
+
+            return clean.toLowerCase();
+        }
+
+        headers.forEach((th, colIndex) => {
+            const title = th.textContent.trim();
+            if (!title || title.toLowerCase() === "aktion" || title.toLowerCase() === "aktionen") {
+                return;
+            }
+
+            th.classList.add("sortable-th");
+            th.dataset.order = "none";
+
+            const arrow = document.createElement("span");
+            arrow.className = "sort-arrow";
+            th.appendChild(arrow);
+
+            th.addEventListener("click", () => {
+                const nextOrder = th.dataset.order === "asc" ? "desc" : "asc";
+
+                headers.forEach(h => {
+                    h.dataset.order = "none";
+                    h.classList.remove("sorted-asc", "sorted-desc");
+                    const a = h.querySelector(".sort-arrow");
+                    if (a) a.textContent = "";
+                });
+
+                th.dataset.order = nextOrder;
+                th.classList.add(nextOrder === "asc" ? "sorted-asc" : "sorted-desc");
+                arrow.textContent = nextOrder === "asc" ? " ↓" : " ↑";
+
+                const rows = Array.from(tbody.querySelectorAll("tr.wl-row"));
+
+                rows.sort((rowA, rowB) => {
+                    const cellA = rowA.children[colIndex];
+                    const cellB = rowB.children[colIndex];
+                    if (!cellA || !cellB) return 0;
+
+                    const rawA = cellA.querySelector("input, select")?.value ?? cellA.textContent;
+                    const rawB = cellB.querySelector("input, select")?.value ?? cellB.textContent;
+
+                    const valA = parseCellValue(rawA);
+                    const valB = parseCellValue(rawB);
+
+                    if (valA === "" && valB !== "") return 1;
+                    if (valB === "" && valA !== "") return -1;
+
+                    let cmp = 0;
+                    if (typeof valA === "number" && typeof valB === "number") {
+                        cmp = valA - valB;
+                    } else {
+                        cmp = String(valA).localeCompare(String(valB), "de", { numeric: true });
+                    }
+
+                    return nextOrder === "asc" ? cmp : -cmp;
+                });
+
+                rows.forEach(row => {
+                    const wid = row.dataset.wlId;
+                    const hintRow = wid ? tbody.querySelector(`tr.kuendigung-hinweis-row[data-for-wl="${wid}"]`) : null;
+                    tbody.appendChild(row);
+                    if (hintRow) {
+                        tbody.appendChild(hintRow);
+                    }
+                });
+
+                if (table === archiveTable) {
+                    applyArchiveFilter();
+                } else {
+                    applyWlFilter();
+                }
+            });
+        });
+    });
+});
+</script>
+{% endblock %}

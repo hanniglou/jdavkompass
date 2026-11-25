@@ -1,0 +1,130 @@
+{% extends "base_extern.html" %}
+
+{% block title %}Wartelisteneintrag bestätigen – JDAV Hildesheim{% endblock %}
+
+{% block content %}
+<section>
+    <h1>Warteliste Jugendgruppe – Interesse bestätigen</h1>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div style="margin: 1rem 0;">
+                {% for category, message in messages %}
+                    <div class="dav-sektion-hinweis" style="display: block; {% if category == 'error' %}border-color: #dc2626; background: #fee2e2; color: #991b1b;{% endif %}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    {% if status_meldung %}
+        <div class="dav-sektion-hinweis" style="display: block; {% if status_typ == 'error' %}border-color: #dc2626; background: #fee2e2; color: #991b1b;{% endif %}">
+            {{ status_meldung }}
+        </div>
+    {% elif eintrag %}
+        <p>
+            Du hast <strong>{{ eintrag.vorname }} {{ eintrag.nachname }}</strong>
+            {% if geburtsdatum_de and geburtsdatum_de != '-' %}(geb. {{ geburtsdatum_de }}){% endif %}
+            am <strong>{{ erstellt_am_de }}</strong> auf unsere Warteliste gesetzt.
+            {% if frist_de and frist_de != '-' %}
+                Bitte bestätige oder aktualisiere deine Angaben bis zum <strong>{{ frist_de }}</strong>.
+            {% endif %}
+        </p>
+
+        {% if eintrag.bestaetigungs_status == 'bestaetigt' %}
+            <div class="dav-sektion-hinweis" style="display: block; border-color: #15803d; background: #f0fdf4; color: #14532d;">
+                Dieser Wartelisteneintrag wurde bereits bestätigt und in das neue Portal übernommen.
+            </div>
+        {% elif eintrag.bestaetigungs_status == 'abgelaufen' %}
+            <div class="dav-sektion-hinweis" style="display: block; border-color: #dc2626; background: #fee2e2; color: #991b1b;">
+                Die vierwöchige Bestätigungsfrist für diesen Eintrag ist leider abgelaufen. Falls weiterhin Interesse besteht, melde dein Kind bitte über das
+                <a href="{{ url_for('warteliste.warteliste_anmeldung') }}">Wartelisten-Formular</a> neu an.
+            </div>
+        {% else %}
+            <form method="POST">
+                <fieldset>
+                    <legend>Kontaktdaten &amp; Angaben prüfen / ergänzen</legend>
+
+                    {% set geb_vorbelegt = eintrag.geburtsdatum[:10] if eintrag.geburtsdatum else '' %}
+                    {% set teile = (eintrag.kontakt_name or '').strip().split(' ', 1) %}
+                    {% set pref_vorname = eintrag.kontakt_vorname or (teile[0] if teile|length > 0 else '') %}
+                    {% set pref_nachname = eintrag.kontakt_nachname or (teile[1] if teile|length > 1 else '') %}
+
+                    <div style="margin-bottom: 1rem; padding: 0.85rem 1rem; background: #fef3c7; border: 1px solid #f59e0b; border-left: 4px solid #d97706; border-radius: 8px;">
+                        <label for="geburtsdatum" style="margin: 0; color: #78350f;">
+                            <strong style="display: block; color: #92400e;">Geburtsdatum prüfen (und ggf. korrigieren)</strong>
+                            <span style="display: block; font-size: 0.9rem; margin-bottom: 0.4rem;">
+                                Bitte prüfe kurz, ob das hinterlegte Geburtsdatum stimmt!
+                            </span>
+                            <input type="date" id="geburtsdatum" name="geburtsdatum" value="{{ geb_vorbelegt }}" style="background: #ffffff; color: #1f2937;">
+                        </label>
+                    </div>
+
+                    <label for="kontakt_vorname">
+                        Vorname Kontaktperson *
+                        <input type="text" id="kontakt_vorname" name="kontakt_vorname" value="{{ pref_vorname }}" required>
+                    </label>
+
+                    <label for="kontakt_nachname">
+                        Nachname Kontaktperson *
+                        <input type="text" id="kontakt_nachname" name="kontakt_nachname" value="{{ pref_nachname }}" required>
+                    </label>
+
+                    <label for="email">
+                        E-Mail-Adresse *
+                        <input type="email" id="email" name="email" value="{{ eintrag.email or '' }}" required>
+                    </label>
+
+                    <label for="telefon">
+                        Telefon *
+                        <input type="tel" id="telefon" name="telefon" value="{{ eintrag.telefon or '' }}" required>
+                    </label>
+
+                    <label for="erfahrung">
+                        Aktuelle Kletter-Erfahrung
+                        <select id="erfahrung" name="erfahrung">
+                            <option value="">— Bitte auswählen —</option>
+                            {% set akt_erf = eintrag.erfahrung or '' %}
+                            {% if akt_erf and akt_erf not in erfahrung_optionen %}
+                                <option value="{{ akt_erf }}" selected>{{ akt_erf }}</option>
+                            {% endif %}
+                            {% for opt in erfahrung_optionen %}
+                                <option value="{{ opt }}" {% if akt_erf == opt %}selected{% endif %}>{{ opt }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+
+                    <label for="interesse">
+                        Interesse an
+                        <select id="interesse" name="interesse">
+                            <option value="">— Bitte auswählen —</option>
+                            {% set akt_int = eintrag.interesse or '' %}
+                            {% if akt_int and akt_int not in interesse_optionen %}
+                                <option value="{{ akt_int }}" selected>{{ akt_int }}</option>
+                            {% endif %}
+                            {% for opt in interesse_optionen %}
+                                <option value="{{ opt }}" {% if akt_int == opt %}selected{% endif %}>{{ opt }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+
+                    <label for="notizen">
+                        Optionale Hinweise (z. B. mögliche Wochentage)
+                        <textarea id="notizen" name="notizen" rows="3">{{ eintrag.notizen or '' }}</textarea>
+                    </label>
+                </fieldset>
+
+                <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+                    <button type="submit" name="aktion" value="bestaetigen" class="btn-kompass">
+                        Weiterhin Interesse – Eintrag bestätigen
+                    </button>
+                    <button type="submit" name="aktion" value="austragen" class="btn-kompass btn-kompass--secondary-light">
+                        Kein Interesse mehr – Von der Warteliste austragen
+                    </button>
+                </div>
+            </form>
+        {% endif %}
+    {% endif %}
+</section>
+{% endblock %}

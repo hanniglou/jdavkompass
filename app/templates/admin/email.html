@@ -217,6 +217,25 @@
         </form>
     </div>
 
+    {# VERSAND-SICHERHEITSSCHALTER #}
+    <div class="form-card email-card">
+        <h3>Versand-Sicherheitsschalter (Test-/Live-Schutz)</h3>
+        <p class="email-card-desc">
+            Wenn deaktiviert, wird jeder echte SMTP-Versand blockiert – ideal für lokale Tests oder vor Massenversand an die Warteliste.
+        </p>
+        <form method="POST" class="inline-form">
+            <input type="hidden" name="form_typ" value="mail_switch">
+            <input type="hidden" name="schluessel" value="{{ gewaehltes_template.schluessel if gewaehltes_template else '' }}">
+            <label class="checkbox-label">
+                <input type="checkbox" name="mail_versand_aktiv" value="1" {% if mail_versand_aktiv %}checked{% endif %}>
+                Echten E-Mail-Versand (SMTP) erlauben
+            </label>
+            <button type="submit" class="btn-kompass btn-kompass--warning">
+                Schalter speichern
+            </button>
+        </form>
+    </div>
+
     {# 4. TEST MAILS VERSENDEN + ADRESSBUCH #}
     <div class="form-card email-card--last">
         <h3>4. Test-Mails versenden</h3>

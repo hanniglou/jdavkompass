@@ -1,5 +1,6 @@
 import sqlite3
 from contextlib import contextmanager
+from pathlib import Path
 
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash
@@ -268,6 +269,13 @@ def init_db():
             sortierung INTEGER NOT NULL DEFAULT 0
         );
         """,
+        """
+        CREATE TABLE IF NOT EXISTS warteliste_tierwoerter (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            wort TEXT UNIQUE NOT NULL,
+            aktiv INTEGER NOT NULL DEFAULT 1
+        );
+        """,
     ]
 
     statements_accounts = [
@@ -297,6 +305,20 @@ def init_db():
             cursor.execute("ALTER TABLE jugendgruppen ADD COLUMN dauer INTEGER;")
         if not _column_exists(cursor, "jugendgruppen", "gruppenart"):
             cursor.execute("ALTER TABLE jugendgruppen ADD COLUMN gruppenart TEXT;")
+        if not _column_exists(cursor, "jugendgruppen", "max_teilnehmer"):
+            cursor.execute(
+                "ALTER TABLE jugendgruppen ADD COLUMN max_teilnehmer INTEGER NOT NULL DEFAULT 12;"
+            )
+            cursor.execute(
+                """
+                UPDATE jugendgruppen
+                SET max_teilnehmer = 6
+                WHERE LOWER(TRIM(COALESCE(gruppenart, ''))) = 'minis'
+                   OR LOWER(TRIM(COALESCE(name, ''))) LIKE '%mini%';
+                """
+            )
+        if not _column_exists(cursor, "jugendgruppen", "jahrgang"):
+            cursor.execute("ALTER TABLE jugendgruppen ADD COLUMN jahrgang INTEGER;")
 
         # Migrationen für gruppenleiter & kuendigungen & mail_templates
         if not _column_exists(cursor, "gruppenleiter", "account_id"):
@@ -321,6 +343,12 @@ def init_db():
         if not _column_exists(cursor, "kuendigungen", "bestaetigung_gesendet"):
             cursor.execute("ALTER TABLE kuendigungen ADD COLUMN bestaetigung_gesendet BOOLEAN NOT NULL DEFAULT 0;")
 
+        try:
+            from app.services.mail_service import synchronisiere_mail_vorlagen_aus_json
+            synchronisiere_mail_vorlagen_aus_json()
+        except Exception:
+            pass
+
         # Nachgestellte/führende Leerzeichen beim Vornamen in 'mitglieder' bereinigen
         cursor.execute(
             """
@@ -329,7 +357,7 @@ def init_db():
             WHERE vorname IS NOT NULL AND vorname != TRIM(vorname);
             """
         )
-        
+
         cursor.execute(
             """
             INSERT OR IGNORE INTO mail_einstellungen (
@@ -415,6 +443,87 @@ def init_db():
             ),
         ]
 
+        standard_tierwoerter = [
+            "adler", "affe", "alpaka", "ameise", "baer", "biber", "chamäleon",
+            "dachs", "delfin", "dino", "eidechse", "elch", "esel", "eule",
+            "falke", "fisch", "fuchs", "gecko", "gemse", "giraffe", "habicht",
+            "hamster", "hase", "igel", "iltis", "jaguar", "kamel", "katze",
+            "koala", "kraehe", "kranich", "krokodil", "kuckuck", "lama", "luchs",
+            "maulwurf", "maus", "murmeltier", "ochse", "otter", "panda", "panther",
+            "papagei", "pfau", "pferd", "pinguin", "puma", "qualle", "rabe",
+            "reh", "rentier", "robbe", "salamander", "schakal", "schildkroete",
+            "schlange", "schwan", "specht", "steinbock", "storch", "tapir",
+            "tiger", "tukan", "wal", "wiesel", "wolf", "yak", "zebra",
+        ]
+        for wort in standard_tierwoerter:
+            cursor.execute(
+                "INSERT OR IGNORE INTO warteliste_tierwoerter (wort, aktiv) VALUES (?, 1);",
+                (wort,),
+            )
+
+        warteliste_templates = [
+            (
+                "warteliste_alt_bestaetigung",
+                "Warteliste – 4-Wochen-Bestätigung (Alt-Einträge)",
+                "Warteliste Jugendgruppe: Bitte Interesse bestätigen ({{kind_name}})",
+                "Hey {{eb_name}},\n\n"
+                "wir sind gerade dabei, unsere Warteliste in unser neues digitales Jugendgruppentool umzuziehen.\n\n"
+                "Du hast dich am {{datum_einreichung}} bei uns auf die Warteliste gesetzt. "
+                "Wenn du weiterhin Interesse hast, bestätige das bitte kurz hier:\n"
+                "{{bestaetigungs_url}}\n\n"
+                "Wenn wir in den nächsten vier Wochen (bis zum {{frist_datum}}) nichts mehr von dir hören, "
+                "gehen wir davon aus, dass du kein Interesse mehr an der Jugendgruppe hast und streichen dich von der Warteliste.\n\n"
+                "Wenn du weiter Interesse am Klettern hast, bekommst du im Anschluss einen Zugang zum Wartelistenportal, "
+                "um deinen Platz auf der Liste einzusehen.\n\n"
+                "Liebe Grüße, dein Team der JDAV Hildesheim",
+                None,
+            ),
+            (
+                "warteliste_anmeldebestaetigung",
+                "Warteliste – Anmeldebestätigung mit Portal-Zugang",
+                "Anmeldebestätigung & Zugang zum Wartelistenportal ({{kind_name}})",
+                "Hallo {{eb_name}},\n\n"
+                "{{uebernahme_hinweis}}"
+                "vielen Dank – der Wartelisteneintrag für {{kind_name}} ist nun bestätigt.\n\n"
+                "Zusammenfassung:\n"
+                "- Kind: {{kind_name}}\n"
+                "- Geburtsdatum: {{geburtsdatum}}\n"
+                "- Erfahrung: {{erfahrung}}\n"
+                "- Interesse an: {{interesse}}\n"
+                "- Separate Warteliste Inklusionsgruppe: {{inklusionsgruppe}}\n"
+                "- Kontaktperson: {{eb_name}}\n"
+                "- E-Mail: {{eb_email}}\n"
+                "- Telefon: {{eb_telefon}}\n"
+                "- Eingetragen am: {{erstellt_am}}\n\n"
+                "Zugang zum Wartelistenportal:\n"
+                "Portal-Link: {{portal_url}}\n"
+                "Login mit Name des Kindes: {{kind_name}}\n"
+                "Passwort: {{tier_passwort}}\n\n"
+                "Viele Grüße\nDein Team der JDAV Hildesheim",
+                None,
+            ),
+            (
+                "warteliste_schnupper_einladung",
+                "Warteliste – Einladung zum Schnuppern",
+                "Schnupper-Einladung Jugendgruppe JDAV Hildesheim ({{kind_name}})",
+                "Hallo {{eb_name}},\n\n"
+                "für {{kind_name}} ist in unserer Gruppe „{{gruppe_name}}“ ({{wochentag}}, {{startzeit}}–{{endzeit}}) "
+                "ein Schnupperplatz frei geworden!\n\n"
+                "Bitte melde dich kurz bei uns, ob ihr zum Schnuppern kommen möchtet.\n\n"
+                "Viele Grüße\nDein Team der JDAV Hildesheim",
+                None,
+            ),
+        ]
+        for tpl in warteliste_templates:
+            cursor.execute(
+                """
+                INSERT OR IGNORE INTO mail_templates (
+                    schluessel, bezeichnung, betreff, text_vorlage, html_vorlage
+                ) VALUES (?, ?, ?, ?, ?);
+                """,
+                tpl,
+            )
+
         beitrags_einstellungen = [
             ("anmeldung_betreuungsgeld_gueltig_ab", "01.03.2026"),
             ("anmeldung_eintritt_gueltig_ab", "01.02.2024"),
@@ -487,6 +596,94 @@ def init_db():
                 ("admin", generate_password_hash("admin"), "4", "active", "admin"),
             )
 
+    with get_warteliste() as conn:
+        _ensure_warteliste_schema(conn)
+
+
+def _ensure_warteliste_schema(conn: sqlite3.Connection) -> None:
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS warteliste_eintraege (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            vorname TEXT NOT NULL,
+            nachname TEXT NOT NULL,
+            geburtsdatum DATE,
+            kontakt_name TEXT,
+            email TEXT NOT NULL,
+            telefon TEXT,
+            interesse TEXT,
+            erfahrung TEXT,
+            inklusionsgruppe INTEGER NOT NULL DEFAULT 0,
+            quelle TEXT NOT NULL DEFAULT 'csv_import',
+            erstellt_am DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            bestaetigungs_status TEXT NOT NULL DEFAULT 'ausstehend',
+            bestaetigung_token TEXT UNIQUE,
+            bestaetigung_gesendet_am DATETIME,
+            bestaetigungsfrist_bis DATETIME,
+            bestaetigt_am DATETIME,
+            aktualisiert_am DATETIME,
+            portal_passwort_hash TEXT,
+            portal_passwort_hinweis TEXT,
+            aus_alter_warteliste_uebernommen INTEGER NOT NULL DEFAULT 0,
+            notizen TEXT
+        );
+        """
+    )
+
+    neue_spalten = [
+        ("kontakt_vorname", "TEXT"),
+        ("kontakt_nachname", "TEXT"),
+        ("inklusionsgruppe", "INTEGER NOT NULL DEFAULT 0"),
+        ("neuigkeiten_optin", "INTEGER NOT NULL DEFAULT 0"),
+        ("bestaetigung_gesendet_am", "DATETIME"),
+        ("aktualisiert_am", "DATETIME"),
+        ("portal_passwort_hash", "TEXT"),
+        ("portal_passwort_hinweis", "TEXT"),
+        ("aus_alter_warteliste_uebernommen", "INTEGER NOT NULL DEFAULT 0"),
+        ("schnupper_eingeladen_am", "DATETIME"),
+        ("schnupper_gruppe_id", "INTEGER"),
+    ]
+    for spalte, def_sql in neue_spalten:
+        if not _column_exists(cursor, "warteliste_eintraege", spalte):
+            cursor.execute(f"ALTER TABLE warteliste_eintraege ADD COLUMN {spalte} {def_sql};")
+
+    cursor.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_warteliste_status_erstellt
+        ON warteliste_eintraege(bestaetigungs_status, erstellt_am);
+        """
+    )
+    cursor.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_warteliste_name_geburtsdatum
+        ON warteliste_eintraege(nachname, vorname, geburtsdatum);
+        """
+    )
+    cursor.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_warteliste_token
+        ON warteliste_eintraege(bestaetigung_token);
+        """
+    )
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS warteliste_blockierte_gruppen (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            eintrag_id INTEGER NOT NULL,
+            gruppe_id INTEGER NOT NULL,
+            erstellt_am DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(eintrag_id, gruppe_id)
+        );
+        """
+    )
+    cursor.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_warteliste_blockiert_eintrag
+        ON warteliste_blockierte_gruppen(eintrag_id);
+        """
+    )
+
 
 @contextmanager
 def get_accounts():
@@ -504,6 +701,20 @@ def get_kompass():
     conn = sqlite3.connect("app/db/kompass.db")
     conn.row_factory = sqlite3.Row
     try:
+        yield conn
+    finally:
+        conn.commit()
+        conn.close()
+
+
+@contextmanager
+def get_warteliste():
+    db_path = Path("app/db/warteliste.db")
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(str(db_path))
+    conn.row_factory = sqlite3.Row
+    try:
+        _ensure_warteliste_schema(conn)
         yield conn
     finally:
         conn.commit()

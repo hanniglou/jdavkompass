@@ -133,6 +133,28 @@
                     {% endfor %}
                 </select>
             </div>
+            <div class="form-grid form-grid--spaced">
+                <div class="form-group">
+                    <label for="max_teilnehmer">Max. Teilnehmende</label>
+                    <input type="number" id="max_teilnehmer" name="max_teilnehmer" min="1" max="50" value="{{ gruppe.max_teilnehmer if gruppe.max_teilnehmer is not none else (6 if gruppe.gruppenart == 'Minis' else 12) }}">
+                </div>
+                <div class="form-group">
+                    <label for="jahrgang">Ziel-Jahrgang (leer bei Inklusionsgruppe)</label>
+                    <input type="number" id="jahrgang" name="jahrgang" min="1990" max="2035" placeholder="z. B. 2014" value="{{ gruppe.jahrgang or '' }}">
+                    {% if jahrgang_empfehlung %}
+                    <small class="form-help">
+                        {{ jahrgang_empfehlung.hinweis }}
+                        {% if jahrgang_empfehlung.empfohlen_jahrgang %}
+                        <button type="button"
+                                class="btn-kompass btn-kompass--secondary-light"
+                                onclick="const inp = document.getElementById('jahrgang'); inp.value = '{{ jahrgang_empfehlung.empfohlen_jahrgang }}'; inp.dispatchEvent(new Event('change'));">
+                            {{ jahrgang_empfehlung.empfohlen_jahrgang }} übernehmen
+                        </button>
+                        {% endif %}
+                    </small>
+                    {% endif %}
+                </div>
+            </div>
             <button type="submit" id="gruppen-stammdaten-btn" class="btn-kompass btn-kompass--success is-disabled" disabled>
                 Änderungen speichern
             </button>

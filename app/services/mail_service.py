@@ -1,9 +1,11 @@
 import html
+import json
 import os
 import re
 import smtplib
 from datetime import datetime
 from email.message import EmailMessage
+from pathlib import Path
 
 from app.models import get_kompass
 
@@ -230,6 +232,10 @@ def _sende_mail(
     reply_to: str | None = None,
 ) -> None:
     cfg = hole_mail_konfiguration()
+    if not ist_mail_versand_aktiv():
+        raise RuntimeError(
+            "E-Mail-Versand ist aktuell deaktiviert (Schutz gegen versehentlichen Versand in Test-/Debug-Umgebungen)."
+        )
     smtp_server = cfg["smtp_server"]
     smtp_port = cfg["smtp_port"]
     username = cfg["smtp_username"]
@@ -847,3 +853,66 @@ def sende_interne_kuendigungs_info(empfaenger_liste: list[dict], daten: dict, fr
 
     _sende_mail(to_ziel, subject, plain_body, html_body, bcc_addrs=bcc_adressen)
     return len(bcc_adressen)
+
+def ist_mail_versand_aktiv() -> bool:
+    """Prüft, ob der echte SMTP-Versand aktuell erlaubt ist (standardmäßig gesperrt, bis explizit aktiviert)."""
+    env_flag = (os.getenv("MAIL_SEND_DISABLED") or "").strip().lower()
+    if env_flag in {"1", "true", "yes", "on"}:
+        return False
+    try:
+        from app.services.admin_service import hole_einstellungen
+        einstellungen = hole_einstellungen()
+        val = str(einstellungen.get("mail_versand_aktiv", "0")).strip().lower()
+        return val in {"1", "true", "yes", "on"}
+    except Exception:
+        return False
+
+    import json
+from pathlib import Path
+
+
+def synchronisiere_mail_vorlagen_aus_json(json_pfad: str | Path | None = None) -> list[str]:
+    """Lädt Vorlagen aus app/data/mail_vorlagen.json und schreibt sie in mail_templates."""
+    if json_pfad is None:
+        basis_dir = Path(__file__).resolve().parents[2]
+        pfad = basis_dir / "app" / "data" / "mail_vorlagen.json"
+    else:
+        pfad = Path(json_pfad)
+
+    if not pfad.exists():
+        return []
+
+    daten = json.loads(pfad.read_text(encoding="utf-8"))
+    if not isinstance(daten, list):
+        raise ValueError("mail_vorlagen.json muss eine Liste von Vorlagen enthalten.")
+
+    verarbeitete: list[str] = []
+    for eintrag in daten:
+        schluessel = (eintrag.get("schluessel") or "").strip()
+        betreff = (eintrag.get("betreff") or "").strip()
+        text_vorlage = (eintrag.get("text_vorlage") or "").strip()
+        if not schluessel or not betreff or not text_vorlage:
+            continue
+
+        bezeichnung = (eintrag.get("bezeichnung") or schluessel).strip()
+        html_vorlage = eintrag.get("html_vorlage") or ""
+
+        if hole_mail_template(schluessel):
+            speichere_mail_template(
+                schluessel=schluessel,
+                betreff=betreff,
+                text_vorlage=text_vorlage,
+                html_vorlage=html_vorlage,
+                bezeichnung=bezeichnung,
+            )
+        else:
+            erstelle_mail_template(
+                bezeichnung=bezeichnung,
+                betreff=betreff,
+                text_vorlage=text_vorlage,
+                html_vorlage=html_vorlage,
+                schluessel=schluessel,
+            )
+        verarbeitete.append(schluessel)
+
+    return verarbeitete

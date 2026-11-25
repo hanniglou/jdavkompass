@@ -38,6 +38,19 @@
     </header>
 
     <main class="site-main container">
+        {% if not mail_versand_aktiv %}
+        <div class="mail-disabled-banner" role="status">
+            <span>
+                <strong>E-Mail-Versand deaktiviert:</strong> Es werden aktuell keine echten E-Mails über SMTP versendet.
+            </span>
+            {% if current_user.is_authenticated and current_user.role >= 4 %}
+            <a href="{{ url_for('admin.admin_email') }}" class="btn-kompass btn-kompass--warning-light">
+                Zur E-Mail-Verwaltung
+            </a>
+            {% endif %}
+        </div>
+        {% endif %}
+
         {% block content %}{% endblock %}
     </main>
 

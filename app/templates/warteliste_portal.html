@@ -1,0 +1,309 @@
+{% extends "base_extern.html" %}
+
+{% block title %}Wartelistenportal – JDAV Hildesheim{% endblock %}
+
+{% block content %}
+<section>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div>
+                {% for category, message in messages %}
+                    <div class="portal-notice {% if category == 'error' %}portal-notice--error{% elif category == 'warning' %}portal-notice--warning{% else %}portal-notice--success{% endif %}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    {% if abgemeldeter_eintrag %}
+        <h1>Von der Warteliste abgemeldet</h1>
+        <div class="portal-notice portal-notice--success">
+            Der Wartelisteneintrag für <strong>{{ abgemeldeter_eintrag.vorname }} {{ abgemeldeter_eintrag.nachname }}</strong> wurde abgemeldet.
+        </div>
+        <div class="portal-actions-row">
+            <a href="{{ url_for('warteliste.warteliste_anmeldung') }}" class="btn-kompass">Zur Wartelisten-Anmeldung</a>
+            <a href="{{ url_for('warteliste.portal') }}" class="btn-kompass btn-kompass--secondary-light">Zum Portal-Login</a>
+        </div>
+
+    {% elif not eintrag %}
+        <h1>Wartelistenportal</h1>
+        <p class="portal-abmelden-text">
+            Melde dich mit dem Namen deines Kindes und deinem persönlichen Tier-Passwort (z. B. <code>dino.qualle.yak</code>) an, um passende Gruppen, eure Wartelistenposition und eure Kontaktdaten einzusehen.
+        </p>
+
+        <form method="POST" action="{{ url_for('warteliste.portal') }}" class="portal-form-compact">
+            <fieldset>
+                <legend>Portal-Login</legend>
+
+                <label for="kind_name">
+                    Name des Kindes (Vorname Nachname) *
+                    <input
+                        type="text"
+                        id="kind_name"
+                        name="kind_name"
+                        value="{{ login_kind_name or '' }}"
+                        placeholder="z. B. Max Mustermann"
+                        required
+                    >
+                </label>
+
+                <label for="passwort">
+                    Passwort *
+                    <input
+                        type="text"
+                        id="passwort"
+                        name="passwort"
+                        class="portal-password-input"
+                        placeholder="tier1.tier2.tier3"
+                        autocomplete="off"
+                        required
+                    >
+                </label>
+
+                <button type="submit" name="aktion" value="login" class="btn-kompass">Einloggen</button>
+            </fieldset>
+        </form>
+
+    {% else %}
+        {% set vorname = eintrag.vorname or 'dein Kind' %}
+        <div class="portal-header-bar">
+            <div>
+                <h1>Warteliste: {{ eintrag.vorname }} {{ eintrag.nachname }}</h1>
+                <p class="portal-meta-line">
+                    Geburtsdatum: <strong>{{ eintrag.geburtsdatum_de }}</strong> ·
+                    Auf der Warteliste seit: <strong>{{ eintrag.erstellt_am_de }}</strong> ·
+                    Status: <strong>{{ eintrag.bestaetigungs_status }}</strong>
+                </p>
+            </div>
+            <form method="POST" action="{{ url_for('warteliste.portal') }}" class="portal-form-compact">
+                <button type="submit" name="aktion" value="logout" class="btn-kompass btn-kompass--secondary-light">
+                    Ausloggen
+                </button>
+            </form>
+        </div>
+
+        {% if eintrag.bestaetigungs_status != 'bestaetigt' %}
+            <div class="portal-notice portal-notice--warning">
+                Der Eintrag für {{ vorname }} ist aktuell noch nicht bestätigt (Status: <strong>{{ eintrag.bestaetigungs_status }}</strong>). Sobald der Eintrag bestätigt ist, wird die Position in den Wartelisten gezählt.
+            </div>
+        {% endif %}
+
+        {% if boulder_hinweis %}
+            <div class="portal-notice portal-notice--warning">
+                {{ boulder_hinweis }}
+            </div>
+        {% endif %}
+
+        {% if zeige_umstellungs_hinweis %}
+            <div class="portal-notice portal-notice--info">
+                <strong>Hinweis zur Umstellung der Warteliste:</strong> Die bisherige Warteliste wird nach und nach ins neue System übernommen. Da alle Familien vier Wochen Zeit haben, ihren Platz zu bestätigen, ist der finale Stand voraussichtlich erst ab <strong>Ende des Jahres</strong> sichtbar. Bis dahin kann es passieren, dass noch Kinder <strong>vor {{ vorname }}</strong> auf der Warteliste bestätigt werden.
+            </div>
+        {% endif %}
+
+        <fieldset>
+            <legend>Passende Gruppen &amp; Wartelistenposition</legend>
+            {% if gruppen_positionen %}
+                <p class="portal-abmelden-text">
+                    Gruppen, die zu deinem Alter und deinen Interessen passen.
+                </p>
+                <div id="portal-gruppen-grid" class="portal-gruppen-grid">
+                    {% for g in gruppen_positionen %}
+                        <article class="portal-gruppe-card{% if g.blockiert %} is-unavail{% endif %}" data-gruppe-id="{{ g.id }}" data-initial-order="{{ loop.index0 }}">
+                            <div class="portal-gruppe-head">
+                                <div>
+                                    <h3 class="portal-gruppe-title">{{ g.name }}</h3>
+                                    <div class="portal-gruppe-meta">
+                                        {% if g.zeit_text %}{{ g.zeit_text }}{% endif %}
+                                        {% if g.ca_alter_text %}{% if g.zeit_text %} · {% endif %}Alter: {{ g.ca_alter_text }}{% endif %}
+                                    </div>
+                                </div>
+                                <span class="portal-gruppe-art-badge">{{ g.gruppenart }}</span>
+                            </div>
+
+                            {% if g.ist_bestaetigt and g.kinder_vor is not none and g.kinder_hinter is not none %}
+                                <div class="portal-stat-box portal-stat-box--full">
+                                    <span class="portal-stat-label">{{ vorname }} ist auf Platz</span>
+                                    <span class="portal-stat-value--black">{{ g.platz_nummer }}</span>
+                                    <span class="portal-stat-label">von {{ g.gesamt_bestaetigt }}!</span>
+                                </div>
+
+                                <div class="portal-gruppe-bottom-row">
+                                    <p class="portal-vor-text">
+                                        Aktuell sind noch <strong>{{ g.kinder_vor }}</strong> Kinder vor {{ vorname }} auf der Warteliste.
+                                    </p>
+
+                                    <label class="portal-toggle-wrap portal-toggle-wrap--inline">
+                                        <input
+                                            type="checkbox"
+                                            class="portal-toggle-input portal-unavail-toggle"
+                                            data-gruppe-id="{{ g.id }}"
+                                            {% if g.blockiert %}checked{% endif %}
+                                        >
+                                        <span class="portal-toggle-slider" aria-hidden="true"></span>
+                                        <span>An diesem Tag kann {{ vorname }} nicht</span>
+                                    </label>
+                                </div>
+                            {% else %}
+                                <div class="portal-gruppe-bottom-row">
+                                    <div class="portal-platz-hinweis">
+                                        Position für {{ vorname }} wird nach Bestätigung berechnet (aktuell {{ g.gesamt_bestaetigt }} bestätigte Kinder).
+                                    </div>
+
+                                    <label class="portal-toggle-wrap portal-toggle-wrap--inline">
+                                        <input
+                                            type="checkbox"
+                                            class="portal-toggle-input portal-unavail-toggle"
+                                            data-gruppe-id="{{ g.id }}"
+                                            {% if g.blockiert %}checked{% endif %}
+                                        >
+                                        <span class="portal-toggle-slider" aria-hidden="true"></span>
+                                        <span>An diesem Tag kann {{ vorname }} nicht</span>
+                                    </label>
+                                </div>
+                            {% endif %}
+                        </article>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="portal-abmelden-text">
+                    Aktuell liegt keine passende Gruppe für {{ vorname }} vor.
+                </p>
+            {% endif %}
+        </fieldset>
+
+        {% set teile = (eintrag.kontakt_name or '').strip().split(' ', 1) %}
+        {% set pref_vorname = eintrag.kontakt_vorname or (teile[0] if teile|length > 0 else '') %}
+        {% set pref_nachname = eintrag.kontakt_nachname or (teile[1] if teile|length > 1 else '') %}
+        {% set aktuelles_interesse = 'Inklusive Klettergruppe' if (eintrag.interesse in ['Inklusive Klettergruppe', 'Inklusionsgruppe'] or eintrag.inklusionsgruppe) else (eintrag.interesse or 'Klettern & Bouldern') %}
+
+        <form method="POST" action="{{ url_for('warteliste.portal') }}" class="portal-form-compact">
+            <fieldset>
+                <legend>Kontaktdaten &amp; Interesse aktualisieren</legend>
+
+                <div class="portal-form-grid">
+                    <label for="kontakt_vorname">
+                        Vorname Kontaktperson *
+                        <input type="text" id="kontakt_vorname" name="kontakt_vorname" value="{{ pref_vorname }}" required>
+                    </label>
+
+                    <label for="kontakt_nachname">
+                        Nachname Kontaktperson *
+                        <input type="text" id="kontakt_nachname" name="kontakt_nachname" value="{{ pref_nachname }}" required>
+                    </label>
+                </div>
+
+                <div class="portal-form-grid">
+                    <label for="email">
+                        E-Mail-Adresse *
+                        <input type="email" id="email" name="email" value="{{ eintrag.email or '' }}" required>
+                    </label>
+
+                    <label for="telefon">
+                        Telefon *
+                        <input type="tel" id="telefon" name="telefon" value="{{ eintrag.telefon or '' }}" required>
+                    </label>
+                </div>
+
+                <div class="portal-form-grid">
+                    <label for="erfahrung">
+                        Erfahrung *
+                        <select id="erfahrung" name="erfahrung" required>
+                            {% for opt in erfahrung_optionen %}
+                                <option value="{{ opt }}" {% if eintrag.erfahrung == opt %}selected{% endif %}>{{ opt }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+
+                    <label for="interesse">
+                        Interesse an *
+                        <select id="interesse" name="interesse" required>
+                            {% for opt in interesse_optionen %}
+                                <option value="{{ opt }}" {% if aktuelles_interesse == opt %}selected{% endif %}>{{ opt }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                </div>
+
+                <label for="neuigkeiten_optin">
+                    <input type="checkbox" id="neuigkeiten_optin" name="neuigkeiten_optin" value="1" {% if eintrag.neuigkeiten_optin %}checked{% endif %}>
+                    <span>
+                        <strong>Neuigkeiten aus der JDAV!</strong> per E-Mail erhalten
+                    </span>
+                </label>
+
+                <label for="notizen">
+                    Ergänzende Hinweise / Notizen
+                    <textarea id="notizen" name="notizen" rows="3">{{ eintrag.notizen or '' }}</textarea>
+                </label>
+
+                <div class="portal-actions-row">
+                    <button type="submit" name="aktion" value="aktualisieren" class="btn-kompass">Änderungen speichern</button>
+                </div>
+
+                <div class="portal-abmelden-box">
+                    <h3>Von der Warteliste abmelden</h3>
+                    <p class="portal-abmelden-text">
+                        Falls {{ vorname }} keinen Platz auf der Warteliste mehr benötigt, könnt ihr den Eintrag hier direkt austragen.
+                    </p>
+                    <button
+                        type="submit"
+                        name="aktion"
+                        value="abmelden"
+                        class="btn-kompass btn-kompass--danger-light"
+                        onclick="return confirm('Möchtest du {{ eintrag.vorname }} {{ eintrag.nachname }} wirklich von der Warteliste abmelden?');"
+                    >
+                        {{ vorname }} von der Warteliste abmelden
+                    </button>
+                </div>
+            </fieldset>
+        </form>
+
+        <script>
+            (function () {
+                const grid = document.getElementById("portal-gruppen-grid");
+                if (!grid) return;
+
+                const toggles = grid.querySelectorAll(".portal-unavail-toggle");
+                const toggleUrl = {{ url_for('warteliste.portal_gruppe_toggle')|tojson }};
+
+                function sortiereGruppen() {
+                    const cards = Array.from(grid.querySelectorAll(".portal-gruppe-card"));
+                    cards.sort((a, b) => {
+                        const aChecked = a.querySelector(".portal-unavail-toggle")?.checked ? 1 : 0;
+                        const bChecked = b.querySelector(".portal-unavail-toggle")?.checked ? 1 : 0;
+                        if (aChecked !== bChecked) return aChecked - bChecked;
+                        const aOrder = Number(a.dataset.initialOrder || 0);
+                        const bOrder = Number(b.dataset.initialOrder || 0);
+                        return aOrder - bOrder;
+                    });
+                    cards.forEach((card) => grid.appendChild(card));
+                }
+
+                toggles.forEach((toggle) => {
+                    toggle.addEventListener("change", () => {
+                        const card = toggle.closest(".portal-gruppe-card");
+                        const gruppeId = Number(toggle.dataset.gruppeId);
+                        const blockiert = Boolean(toggle.checked);
+
+                        if (card) {
+                            card.classList.toggle("is-unavail", blockiert);
+                        }
+                        sortiereGruppen();
+
+                        if (gruppeId) {
+                            fetch(toggleUrl, {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ gruppe_id: gruppeId, blockiert: blockiert })
+                            }).catch(() => {});
+                        }
+                    });
+                });
+
+                sortiereGruppen();
+            })();
+        </script>
+    {% endif %}
+</section>
+{% endblock %}

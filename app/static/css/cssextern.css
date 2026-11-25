@@ -315,6 +315,23 @@ fieldset label:has(input[type="checkbox"]) {
     padding-right: 40px;
 }
 
+.mail-disabled-banner {
+    margin-bottom: 1.25rem;
+    padding: 0.65rem 0.95rem;
+    border-radius: var(--radius);
+    border: 1px solid #f59e0b;
+    border-left: 4px solid #d97706;
+    background-color: #fffbeb;
+    color: #92400e;
+    font-size: 0.92rem;
+    font-weight: var(--fw-regular);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
 /* =========================
    FOOTER
 ========================= */
@@ -367,4 +384,303 @@ footer {
 .error-card p {
     margin-bottom: 1.25rem;
     color: #4b5563;
+}
+
+/* =========================
+   WARTELISTENPORTAL (EXTERN)
+========================= */
+.portal-header-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.25rem;
+}
+
+.portal-meta-line {
+    color: var(--text-color-grey);
+    font-size: 0.95rem;
+    margin-top: 0.25rem;
+}
+
+.portal-form-compact {
+    padding: 0;
+}
+
+.portal-password-input {
+    font-family: var(--font-mono);
+}
+
+.portal-notice {
+    margin: 1rem 0;
+    padding: 0.8rem 1rem;
+    border-radius: var(--radius);
+    border: 1px solid #d1d5db;
+    background: #f9fafb;
+    color: var(--text-color-darkgrey);
+    font-size: 0.94rem;
+}
+
+.portal-notice--error {
+    border-color: #dc2626;
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.portal-notice--warning {
+    border-color: #f59e0b;
+    background: #fffbeb;
+    color: #92400e;
+}
+
+.portal-notice--success {
+    border-color: #15803d;
+    background: #f0fdf4;
+    color: #14532d;
+}
+
+.portal-gruppen-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1rem;
+    margin-top: 0.75rem;
+}
+
+.portal-gruppe-card {
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 1.15rem 1.25rem;
+    background: #ffffff;
+    box-shadow: var(--shadow);
+}
+
+.portal-gruppe-title {
+    margin: 0 0 0.25rem 0;
+    color: var(--text-color-darkgrey);
+}
+
+.portal-gruppe-meta {
+    font-size: 0.88rem;
+    color: var(--text-color-grey);
+    margin-bottom: 0.85rem;
+}
+
+.portal-queue-stats {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.6rem;
+    margin-bottom: 0.65rem;
+}
+
+.portal-stat-box {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: var(--radius);
+    padding: 0.6rem 0.75rem;
+}
+
+.portal-stat-value {
+    display: block;
+    font-size: 1.25rem;
+    font-weight: var(--fw-bold);
+    line-height: 1.2;
+    color: var(--text-color-darkgrey);
+}
+
+.portal-stat-label {
+    font-size: 0.82rem;
+    color: var(--text-color-grey);
+}
+
+.portal-platz-hinweis {
+    font-size: 0.85rem;
+    color: var(--text-color-grey);
+}
+
+.portal-form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 0 1.25rem;
+}
+
+.portal-actions-row {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-top: 0.5rem;
+}
+
+.btn-kompass--danger-light {
+    background: #fee2e2;
+    color: #b91c1c;
+    border-color: #f87171;
+}
+
+.portal-abmelden-box {
+    margin-top: 2rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid #e5e7eb;
+}
+
+.portal-abmelden-text {
+    font-size: 0.92rem;
+    color: var(--text-color-grey);
+    margin-bottom: 0.75rem;
+}
+
+/* =========================
+   PORTAL TOGGLE & ZUSTÄNDE
+========================= */
+.portal-gruppe-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+}
+
+.portal-gruppe-art-badge {
+    display: inline-block;
+    font-size: 0.78rem;
+    font-weight: var(--fw-medium);
+    padding: 0.15rem 0.55rem;
+    border-radius: 999px;
+    background: #f3f4f6;
+    color: #374151;
+    border: 1px solid #d1d5db;
+    white-space: nowrap;
+}
+
+.portal-toggle-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.65rem;
+    margin-bottom: 0;
+    cursor: pointer;
+    flex-direction: row;
+    font-size: 0.88rem;
+    color: var(--text-color-darkgrey);
+}
+
+.portal-toggle-input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.portal-toggle-slider {
+    position: relative;
+    display: inline-block;
+    width: 40px;
+    height: 22px;
+    background-color: #d1d5db;
+    border-radius: 999px;
+    transition: var(--transition);
+    flex-shrink: 0;
+}
+
+.portal-toggle-slider::after {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 18px;
+    height: 18px;
+    border-radius: 999px;
+    background-color: #ffffff;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    transition: var(--transition);
+}
+
+.portal-toggle-input:checked + .portal-toggle-slider {
+    background-color: #dc2626;
+}
+
+.portal-toggle-input:checked + .portal-toggle-slider::after {
+    transform: translateX(18px);
+}
+
+.portal-gruppe-card.is-unavail {
+    opacity: 0.58;
+    background: #f9fafb;
+    border-color: #d1d5db;
+    box-shadow: none;
+}
+
+.portal-queue-lead {
+    font-size: 0.92rem;
+    color: var(--text-color-darkgrey);
+    margin-bottom: 0.65rem;
+    line-height: 1.45;
+}
+
+.portal-queue-hint-sub {
+    font-size: 0.85rem;
+    color: var(--text-color-grey);
+    margin-top: 0.45rem;
+}
+
+.portal-stat-value--accent {
+    color: var(--color-highlight);
+}
+
+.portal-gruppe-body {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.portal-stat-box--inline {
+    flex: 1 1 220px;
+    display: flex;
+    align-items: baseline;
+    gap: 0.45rem;
+    flex-wrap: wrap;
+}
+
+.portal-stat-value--black {
+    font-size: 1.5rem;
+    font-weight: var(--fw-bold);
+    line-height: 1.15;
+    color: var(--text-color-darkgrey);
+}
+
+.portal-toggle-wrap--inline {
+    margin-top: 0;
+}
+
+.portal-stat-box--full {
+    width: 100%;
+    display: flex;
+    align-items: baseline;
+    gap: 0.45rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.75rem;
+}
+
+.portal-gruppe-bottom-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.portal-vor-text {
+    margin: 0;
+    font-size: 0.92rem;
+    color: var(--text-color-darkgrey);
+    line-height: 1.4;
+}
+
+.portal-notice--info {
+    border-color: #3b82f6;
+    background: #eff6ff;
+    color: #1e3a8a;
 }

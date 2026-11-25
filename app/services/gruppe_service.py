@@ -398,6 +398,56 @@ def hole_teilnehmende_und_quartalsende(gruppe_id: int, referenz_datum: date | No
 
     return mitglieder, anzahl_aktuell, anzahl_quartalsende
 
+def empfehle_gruppen_jahrgang(gruppe_id: int, gruppenart: str | None = None) -> dict:
+    """Berechnet anhand aktiver (nicht archivierter) Mitglieder eine Jahrgangs-Empfehlung."""
+    art_norm = (gruppenart or "").strip().lower()
+    if "inklusion" in art_norm:
+        return {
+            "empfohlen_jahrgang": None,
+            "hinweis": "Inklusionsgruppe: Kein Ziel-Jahrgang erforderlich (eigene Warteliste).",
+        }
+
+    with get_kompass() as conn:
+        rows = conn.execute(
+            """
+            SELECT m.geburtsdatum
+            FROM mitglieder m
+            JOIN mitglied_jugendgruppen mg ON m.id = mg.mitglied_id
+            WHERE mg.jugendgruppe_id = ?
+              AND COALESCE(m.archiviert, 0) = 0
+              AND m.geburtsdatum IS NOT NULL
+              AND TRIM(m.geburtsdatum) != ''
+            """,
+            (gruppe_id,),
+        ).fetchall()
+
+    jahre: list[int] = []
+    for r in rows:
+        raw = str(r["geburtsdatum"] or "").strip()
+        if len(raw) >= 4 and raw[:4].isdigit():
+            jahre.append(int(raw[:4]))
+
+    if not jahre:
+        return {
+            "empfohlen_jahrgang": None,
+            "hinweis": "Noch keine aktiven Mitglieder mit Geburtsdatum in dieser Gruppe – Jahrgang manuell festlegen.",
+        }
+
+    sortiert = sorted(jahre)
+    n = len(sortiert)
+    if n % 2 == 1:
+        median_jahr = sortiert[n // 2]
+    else:
+        median_jahr = round((sortiert[n // 2 - 1] + sortiert[n // 2]) / 2)
+
+    return {
+        "empfohlen_jahrgang": median_jahr,
+        "hinweis": (
+            f"Empfehlung aus {n} aktiven TN: Jahrgang {median_jahr} "
+            f"(Spanne in Gruppe: {min(sortiert)}–{max(sortiert)})."
+        ),
+    }
+
 
 def mitglied_zu_gruppe_hinzufuegen(gruppe_id, mitglied_id):
     with get_kompass() as conn:

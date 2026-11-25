@@ -276,7 +276,24 @@ def get_all_gruppenleiter():
 
         return gruppenleiter
 
+def speichere_einstellungen(werte: dict[str, str]) -> None:
+    with get_kompass() as conn:
+        for schluessel, rohwert in werte.items():
+            default_wert = DEFAULT_EINSTELLUNGEN.get(schluessel, "")
+            bereinigt = (rohwert or "").replace("\r\n", "\n").strip()
+            if not bereinigt and default_wert:
+                bereinigt = default_wert
+            conn.execute(
+                """
+                INSERT INTO app_einstellungen (schluessel, wert)
+                VALUES (?, ?)
+                ON CONFLICT(schluessel) DO UPDATE SET wert = excluded.wert
+                """,
+                (schluessel, bereinigt),
+            )
+
 DEFAULT_EINSTELLUNGEN = {
+    "mail_versand_aktiv": "0",
     "footer_text": (
         "Notfallkontakt: Lou Hannig\n"
         "lou.hannig@jdav-hildesheim.de\n"

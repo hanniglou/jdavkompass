@@ -22,8 +22,10 @@ from .routes.mitglieder_freigeben import mitglieder_freigeben_bp
 from .routes.profile import profile_bp
 from .routes.api import api_bp
 from .routes.kuendigung import kuendigung_bp
+from .routes.warteliste import warteliste_bp
 
 from app.services.admin_service import hole_einstellungen, hole_gruppenarten
+from app.services.mail_service import ist_mail_versand_aktiv
 
 login_manager = LoginManager()
 login_manager.login_view = "auth.login"
@@ -91,6 +93,7 @@ def create_app():
             "footer_extern_text_raw": cfg["footer_extern_text"],
             "anmeldung_cfg": cfg,
             "gruppenarten": hole_gruppenarten(),
+            "mail_versand_aktiv": ist_mail_versand_aktiv(),
         }
 
     @app.before_request
@@ -216,5 +219,6 @@ def create_app():
     app.register_blueprint(index_bp)
     app.register_blueprint(api_bp)
     app.register_blueprint(kuendigung_bp)
+    app.register_blueprint(warteliste_bp)
     
     return app

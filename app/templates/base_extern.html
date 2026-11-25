@@ -14,12 +14,25 @@
 </head>
 <body>
     <main>
+        {% if not mail_versand_aktiv %}
+        <div class="mail-disabled-banner" role="status">
+            <span>
+                <strong>E-Mail-Versand deaktiviert:</strong> Es werden aktuell keine echten E-Mails über SMTP versendet.
+            </span>
+            {% if current_user.is_authenticated and current_user.role >= 4 %}
+            <a href="{{ url_for('admin.admin_email') }}" class="btn-kompass btn-kompass--secondary-light">
+                Zur E-Mail-Verwaltung
+            </a>
+            {% endif %}
+        </div>
+        {% endif %}
+
         {% block content %}{% endblock %}
     </main>
     <footer>
-     {% for zeile in footer_extern_zeilen %}
-         {{ zeile }}{% if not loop.last %}<br>{% endif %}
-     {% endfor %}
- </footer>
+        {% for zeile in footer_extern_zeilen %}
+            {{ zeile }}{% if not loop.last %}<br>{% endif %}
+        {% endfor %}
+    </footer>
 </body>
 </html>

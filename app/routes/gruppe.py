@@ -20,6 +20,7 @@ from app.services.admin_service import log_aenderung
 from app.services.gruppe_service import (
     baue_anwesenheits_excel,
     bereinige_und_hole_gruppen_hinweise,
+    empfehle_gruppen_jahrgang,
     get_anwesenheit,
     get_gruppe,
     get_gruppenleiter,
@@ -457,19 +458,40 @@ def download_attendance(gruppe_id):
 def gruppe_bearbeiten(gruppe_id):
     with get_kompass() as db:
         if request.method == "POST":
-            name = request.form.get("name")
-            wochentag = request.form.get("wochentag")
-            startzeit = request.form.get("startzeit")
-            dauer = request.form.get("dauer")
-            gruppenart = request.form.get("gruppenart")
+            name = (request.form.get("name") or "").strip()
+            wochentag = (request.form.get("wochentag") or "").strip()
+            startzeit = (request.form.get("startzeit") or "").strip()
+            dauer_raw = (request.form.get("dauer") or "").strip()
+            gruppenart = (request.form.get("gruppenart") or "").strip()
+            max_tn_raw = (request.form.get("max_teilnehmer") or "").strip()
+            jahrgang_raw = (request.form.get("jahrgang") or "").strip()
+
+            dauer = int(dauer_raw) if dauer_raw.isdigit() else None
+            default_max = 6 if gruppenart.lower() == "minis" else 12
+            max_teilnehmer = (
+                int(max_tn_raw)
+                if max_tn_raw.isdigit() and int(max_tn_raw) > 0
+                else default_max
+            )
+            jahrgang = int(jahrgang_raw) if jahrgang_raw.isdigit() else None
 
             db.execute(
                 """
-                UPDATE jugendgruppen 
-                SET name = ?, wochentag = ?, startzeit = ?, dauer = ?, gruppenart = ?
+                UPDATE jugendgruppen
+                SET name = ?, wochentag = ?, startzeit = ?, dauer = ?, gruppenart = ?,
+                    max_teilnehmer = ?, jahrgang = ?
                 WHERE id = ?
                 """,
-                (name, wochentag, startzeit, dauer, gruppenart, gruppe_id),
+                (
+                    name,
+                    wochentag,
+                    startzeit,
+                    dauer,
+                    gruppenart,
+                    max_teilnehmer,
+                    jahrgang,
+                    gruppe_id,
+                ),
             )
             db.commit()
             log_aenderung(
@@ -485,8 +507,8 @@ def gruppe_bearbeiten(gruppe_id):
 
         aktive_mitglieder = db.execute(
             """
-            SELECT m.* FROM mitglieder m 
-            JOIN mitglied_jugendgruppen mg ON m.id = mg.mitglied_id 
+            SELECT m.* FROM mitglieder m
+            JOIN mitglied_jugendgruppen mg ON m.id = mg.mitglied_id
             WHERE mg.jugendgruppe_id = ?
             """,
             (gruppe_id,),
@@ -494,12 +516,17 @@ def gruppe_bearbeiten(gruppe_id):
 
         aktive_leiter = db.execute(
             """
-            SELECT gl.* FROM gruppenleiter gl 
-            JOIN gruppenleiter_jugendgruppen glg ON gl.id = glg.gruppenleiter_id 
+            SELECT gl.* FROM gruppenleiter gl
+            JOIN gruppenleiter_jugendgruppen glg ON gl.id = glg.gruppenleiter_id
             WHERE glg.jugendgruppe_id = ?
             """,
             (gruppe_id,),
         ).fetchall()
+
+    jahrgang_empfehlung = empfehle_gruppen_jahrgang(
+        gruppe_id=gruppe_id,
+        gruppenart=gruppe["gruppenart"] if gruppe else None,
+    )
 
     return render_template(
         "gruppe_bearbeiten.html",
@@ -508,4 +535,5 @@ def gruppe_bearbeiten(gruppe_id):
         gruppenleiter=gruppenleiter,
         aktive_mitglieder=aktive_mitglieder,
         aktive_leiter=aktive_leiter,
+        jahrgang_empfehlung=jahrgang_empfehlung,
     )

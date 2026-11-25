@@ -1,0 +1,45 @@
+{% extends "base_extern.html" %}
+
+{% block title %}{{ titel }} – JDAV Hildesheim{% endblock %}
+
+{% block content %}
+<section>
+    <h1>{{ titel }}</h1>
+
+    {% if aus_alter_warteliste %}
+        <div class="dav-sektion-hinweis" style="display: block; border-color: #15803d; background: #f0fdf4; color: #14532d;">
+            <strong>Hinweis:</strong> Dein Wartelisteneintrag wurde aus unserer alten Warteliste übernommen (ursprüngliches Anmeldedatum: {{ erstellt_am_de }}).
+        </div>
+    {% endif %}
+
+    {% if mail_gesendet %}
+        <p>Wir haben dir eine Bestätigungs-E-Mail mit allen Daten und deinem Zugang zum Wartelistenportal an <strong>{{ eintrag.email }}</strong> geschickt.</p>
+    {% elif mail_hinweis %}
+        <div class="dav-sektion-hinweis" style="display: block;">
+            Dein Eintrag wurde gespeichert, aber die E-Mail konnte aktuell nicht versendet werden ({{ mail_hinweis }}). Bitte notiere dir dein Portal-Passwort unten direkt.
+        </div>
+    {% endif %}
+
+    <fieldset>
+        <legend>Zusammenfassung</legend>
+        <p><strong>Kind:</strong> {{ eintrag.vorname }} {{ eintrag.nachname }} (geb. {{ geburtsdatum_de }})</p>
+        <p><strong>Erfahrung:</strong> {{ eintrag.erfahrung or '-' }}</p>
+        <p><strong>Interesse an:</strong> {{ eintrag.interesse or '-' }}</p>
+        <p><strong>Separate Warteliste Inklusionsgruppe:</strong> {{ 'Ja' if eintrag.inklusionsgruppe else 'Nein' }}</p>
+        <p><strong>Kontaktperson:</strong> {{ eintrag.kontakt_name or '-' }}</p>
+        <p><strong>E-Mail &amp; Telefon:</strong> {{ eintrag.email }} · {{ eintrag.telefon or '-' }}</p>
+    </fieldset>
+
+    {% if tier_passwort %}
+    <fieldset>
+        <legend>Dein Zugang zum Wartelistenportal</legend>
+        <p>Mit diesen Zugangsdaten kannst du jederzeit prüfen, für welche Gruppen dein Kind in Frage kommt und auf welchem Platz ihr steht:</p>
+        <p><strong>Name des Kindes:</strong> {{ eintrag.vorname }} {{ eintrag.nachname }}</p>
+        <p><strong>Passwort:</strong> <code>{{ tier_passwort }}</code></p>
+        <p style="margin-top: 0.75rem;">
+            <a href="{{ portal_url }}" class="btn-kompass">Zum Wartelistenportal</a>
+        </p>
+    </fieldset>
+    {% endif %}
+</section>
+{% endblock %}

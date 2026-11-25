@@ -30,7 +30,17 @@ from app.services.admin_service import (
     speichere_gruppenart,
     update_account_status,
 )
-from app.services.gruppe_service import baue_anwesenheits_excel
+from app.services.gruppe_service import (
+    baue_anwesenheits_excel,
+    hole_teilnehmende_und_quartalsende,
+)
+from app.services.warteliste_service import (
+    hole_passende_warteliste_kinder_fuer_gruppe,
+    hole_warteliste_eintraege,
+    lade_schnupper_kandidaten_fuer_gruppe,
+    sende_schnupper_einladung,
+    setze_warteliste_status_admin,
+)
 from app.services.gruppen_service import loesche_gruppe, neue_gruppe_erstellen
 from app.services.mail_service import (
     SYSTEM_TEMPLATE_SCHLUESSEL,
@@ -39,6 +49,7 @@ from app.services.mail_service import (
     hole_adressbuch_eintraege,
     hole_alle_mail_templates,
     hole_mail_konfiguration,
+    ist_mail_versand_aktiv,
     loesche_adressbuch_eintrag,
     loesche_mail_template,
     sende_test_mail,
@@ -281,6 +292,14 @@ def admin_email():
             else:
                 flash("Bezeichnung, Betreff und Klartext-Vorlage dürfen nicht leer sein.", "error")
 
+        elif form_typ == "mail_switch":
+            aktiv_wert = "1" if request.form.get("mail_versand_aktiv") == "1" else "0"
+            speichere_einstellungen({"mail_versand_aktiv": aktiv_wert})
+            zustand_text = "aktiviert" if aktiv_wert == "1" else "deaktiviert (Sperre aktiv)"
+            log_aenderung("E-Mail-Versand-Schalter geändert", f"Status: {zustand_text}")
+            flash(f"E-Mail-Versand wurde {zustand_text}.", "success")
+            return redirect(url_for("admin.admin_email", tpl=aktiver_schluessel))
+
         elif form_typ == "template":
             schluessel = request.form.get("schluessel", "").strip()
             bezeichnung = request.form.get("bezeichnung", "").strip()
@@ -411,6 +430,7 @@ def admin_email():
         gewaehltes_template=gewaehltes_template,
         system_schluessel=SYSTEM_TEMPLATE_SCHLUESSEL,
         adressbuch=hole_adressbuch_eintraege(),
+        mail_versand_aktiv=ist_mail_versand_aktiv(),
     )
 
 
@@ -497,4 +517,134 @@ def admin_texte():
         "admin/texte.html",
         active_tab="texte",
         texte=hole_einstellungen(),
+    )
+
+
+@admin_bp.route("/admin/warteliste", methods=["GET", "POST"])
+@login_required
+@require_role(4)
+def admin_warteliste():
+    status_filter = (request.args.get("status") or "bestaetigt").strip()
+    quelle_filter = (request.args.get("quelle") or "").strip()
+    nur_inklusion = request.args.get("inklusion") == "1"
+    suchbegriff = (request.args.get("q") or "").strip()
+    gruppe_id_raw = (request.args.get("gruppe_id") or "").strip()
+
+    with get_kompass() as conn:
+        gruppen_rows = conn.execute(
+            """
+            SELECT id, name, wochentag, startzeit, endzeit, gruppenart, max_teilnehmer, jahrgang
+            FROM jugendgruppen
+            ORDER BY name ASC, id ASC
+            """
+        ).fetchall()
+    gruppen = [dict(r) for r in gruppen_rows]
+
+    for g in gruppen:
+        _, anzahl_aktuell, anzahl_quartalsende = hole_teilnehmende_und_quartalsende(g["id"])
+        max_tn = int(g.get("max_teilnehmer") or 12)
+        g["max_teilnehmer"] = max_tn
+        g["aktuell"] = anzahl_aktuell
+        g["quartalsende"] = anzahl_quartalsende
+        g["frei_aktuell"] = max(0, max_tn - anzahl_aktuell)
+        g["frei_quartalsende"] = max(0, max_tn - anzahl_quartalsende)
+
+    gewaehlte_gruppe = None
+    if gruppe_id_raw:
+        try:
+            gid = int(gruppe_id_raw)
+            gewaehlte_gruppe = next((g for g in gruppen if g["id"] == gid), None)
+        except ValueError:
+            gewaehlte_gruppe = None
+    if gewaehlte_gruppe is None and gruppen:
+        gewaehlte_gruppe = gruppen[0]
+
+    if request.method == "POST":
+        action = (request.form.get("action") or "").strip()
+
+        if action == "set_status":
+            try:
+                eid = int(request.form.get("eintrag_id", "").strip())
+                neuer_status = (request.form.get("neuer_status") or "").strip()
+                setze_warteliste_status_admin(eid, neuer_status)
+                log_aenderung("Warteliste Status geändert", f"ID {eid} -> {neuer_status}")
+                flash("Status wurde aktualisiert.", "success")
+            except Exception as exc:
+                flash(f"Fehler beim Statuswechsel: {exc}", "error")
+
+        elif action == "send_schnupper":
+            try:
+                eid = int(request.form.get("eintrag_id", "").strip())
+                if not gewaehlte_gruppe:
+                    raise ValueError("Keine Gruppe ausgewählt.")
+                sende_schnupper_einladung(eid, gewaehlte_gruppe)
+                log_aenderung(
+                    "Warteliste Schnupper-Einladung gesendet",
+                    f"Eintrag-ID {eid} für Gruppe {gewaehlte_gruppe['name']}",
+                )
+                flash(f"Schnupper-Einladung für „{gewaehlte_gruppe['name']}“ wurde versendet.", "success")
+            except Exception as exc:
+                flash(f"Schnupper-Einladung fehlgeschlagen: {exc}", "error")
+
+        return redirect(
+            url_for(
+                "admin.admin_warteliste",
+                status=status_filter,
+                quelle=quelle_filter,
+                inklusion="1" if nur_inklusion else "",
+                q=suchbegriff,
+                gruppe_id=gewaehlte_gruppe["id"] if gewaehlte_gruppe else "",
+            )
+        )
+
+    db_status_filter = "" if status_filter == "alle" else status_filter
+    eintraege = hole_warteliste_eintraege(
+        status_filter=db_status_filter,
+        quelle_filter=quelle_filter,
+        nur_inklusion=nur_inklusion,
+        suchbegriff=suchbegriff,
+    )
+
+    eintraege = hole_warteliste_eintraege(
+        status_filter=db_status_filter,
+        quelle_filter=quelle_filter,
+        nur_inklusion=False,
+        suchbegriff=suchbegriff,
+    )
+
+    for e in eintraege:
+        passende = []
+        for g in gruppen:
+            kinder_g = hole_passende_warteliste_kinder_fuer_gruppe(g)
+            if any(k.get("id") == e.get("id") for k in kinder_g):
+                passende.append(g["name"])
+        e["passende_gruppen"] = passende
+
+    gruppen_belegung = None
+    passende_kinder = []
+    schnupper_kandidaten = []
+    if gewaehlte_gruppe:
+        gruppen_belegung = {
+            "max_teilnehmer": gewaehlte_gruppe["max_teilnehmer"],
+            "aktuell": gewaehlte_gruppe["aktuell"],
+            "quartalsende": gewaehlte_gruppe["quartalsende"],
+            "frei_aktuell": gewaehlte_gruppe["frei_aktuell"],
+            "frei_quartalsende": gewaehlte_gruppe["frei_quartalsende"],
+        }
+        passende_kinder = hole_passende_warteliste_kinder_fuer_gruppe(gewaehlte_gruppe)
+        schnupper_kandidaten = lade_schnupper_kandidaten_fuer_gruppe(gewaehlte_gruppe, anzahl=3)
+
+    return render_template(
+        "admin/warteliste.html",
+        active_tab="warteliste",
+        eintraege=eintraege,
+        gruppen=gruppen,
+        gewaehlte_gruppe=gewaehlte_gruppe,
+        gruppen_belegung=gruppen_belegung,
+        passende_kinder=passende_kinder,
+        schnupper_kandidaten=schnupper_kandidaten,
+        status_filter=status_filter,
+        quelle_filter=quelle_filter,
+        nur_inklusion=nur_inklusion,
+        suchbegriff=suchbegriff,
     )
